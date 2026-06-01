@@ -2,12 +2,11 @@ import { Copy, Play, Search, Smartphone } from 'lucide-react';
 import {
   AccountActionRow,
   AccountActionRows,
+  AccountCarrierManualOTPSubmit,
   AccountDangerZone,
   AccountDetails,
-  AccountManualOTPSubmit,
   Badge,
   Button,
-  accountCarrierID,
   accountId,
   accountStatusValue,
   accountSubjectRenderConfig,
@@ -68,7 +67,18 @@ function WaAccountOverview({ carrier, account, actionResult, busy, onRegister, o
     <div className="grid gap-0">
       <div className="grid gap-3 p-4 pb-0">
         <WaAccountActions account={account} busy={busy} onRegister={() => onRegister(carrier)} onProbe={() => onProbe(carrier)} />
-        <WaManualOTPSubmit account={carrier} disabled={busy} onDone={onManualOTPDone} onError={onError} />
+        <AccountCarrierManualOTPSubmit
+          account={carrier}
+          keyPrefix="wa-manual-otp"
+          subtitle="只把本次输入提交给当前等待中的注册流程，不写入 OTP 历史。"
+          disabled={busy}
+          submit={submitWaRegistrationOTP}
+          onSuccess={(resp) => {
+            if (resp.error_message || resp.success === false) throw new Error(resp.error_message || 'OTP 提交失败');
+            onManualOTPDone('OTP 已提交到等待中的注册流程');
+          }}
+          onError={(error) => onError(error instanceof Error ? error.message : String(error))}
+        />
         {currentResult && <WaResultPanel title={currentResult.kind === 'register' ? '注册结果' : '探测结果'} phone={currentResult.phone} result={currentResult.result} loading={busy} />}
       </div>
       <AccountDetails
@@ -83,28 +93,6 @@ function WaAccountOverview({ carrier, account, actionResult, busy, onRegister, o
         <AccountDangerZone account={carrier} busy={busy} onDelete={onDelete} />
       </div>
     </div>
-  );
-}
-
-function WaManualOTPSubmit({ account, disabled, onDone, onError }: {
-  account: WaAccountProjection;
-  disabled?: boolean;
-  onDone: (message: string) => void;
-  onError: (message: string) => void;
-}) {
-  const accountID = accountCarrierID(account);
-  return (
-    <AccountManualOTPSubmit
-      submitKey={`wa-manual-otp:${accountID}`}
-      subtitle="只把本次输入提交给当前等待中的注册流程，不写入 OTP 历史。"
-      disabled={disabled || !accountID}
-      onSubmit={async (otp) => {
-        const resp = await submitWaRegistrationOTP(account, otp);
-        if (resp.error_message || resp.success === false) throw new Error(resp.error_message || 'OTP 提交失败');
-        onDone('OTP 已提交到等待中的注册流程');
-      }}
-      onError={(error) => onError(error instanceof Error ? error.message : String(error))}
-    />
   );
 }
 
