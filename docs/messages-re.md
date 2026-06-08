@@ -25,6 +25,8 @@ Display text should be assembled from typed message subfields instead of showing
 
 JSON strings in rich-message params may contain keys such as `display_text`, `url`, `title`, `body`, and `description`; wa-app normalizes these into line-based display text and lets the frontend render links.
 
+`X/C9AP.java` confirms CTA/link button JSON also carries `merchant_url`, `consented_users_url`, `message_origin`, `webview_presentation`, `payment_link_preview`, `merchant_payment_link_preview`, and `webview_interaction`. Only human display strings and HTTP(S) URLs are projected into chat text; boolean/webview flags stay internal UI metadata and are not shown as raw JSON.
+
 ## One-time historical plaintext backfill
 
 Historical rows created before `plaintext_value` was persisted can be repaired by re-invoking `WaExtractionService.DecryptMessage` with `include_sensitive_plaintext = true` and `SESSION_COMMIT_POLICY_TRANSIENT`. This is an operational one-off: it writes normal `wa_decrypted_messages` rows through the service path and does not add migration code or retain temporary tooling.

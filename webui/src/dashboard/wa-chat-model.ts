@@ -139,7 +139,7 @@ function recordContactID(record: WAContactRecord) {
 }
 
 function recordTitle(record: WAContactRecord) {
-  return record.display_name || record.verified_name || record.wa_name || sourcePartyLabel(record.jid || record.number) || '未知联系人';
+  return safeContactName(record.display_name) || record.verified_name || record.wa_name || phoneTitle(record.number) || sourcePartyLabel(record.jid) || '未知联系人';
 }
 
 function recordSubtitle(record: WAContactRecord) {
@@ -177,6 +177,17 @@ function messageStateLabel(state?: MessageEncryptionState) {
   if (state === MessageEncryptionState.MESSAGE_ENCRYPTION_STATE_ENCRYPTED) return '消息待解密';
   if (state === MessageEncryptionState.MESSAGE_ENCRYPTION_STATE_DECRYPTION_FAILED) return '消息解密失败';
   return '空消息';
+}
+
+function safeContactName(value?: string) {
+  const name = (value || '').trim();
+  if (!name || name === '未知联系人' || name.startsWith('LID ')) return '';
+  return name;
+}
+
+function phoneTitle(number?: string) {
+  const value = (number || '').trim();
+  return value ? `+${value}` : '';
 }
 
 function parseDate(value?: string) {

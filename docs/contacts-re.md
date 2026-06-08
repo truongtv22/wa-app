@@ -135,6 +135,7 @@ Follow-up:
   - `interactive` side-list probes with `sidelist@addressing_mode=lid` and with app-observed plain `sidelist`.
 - `resolved_count` now counts contacts that actually gained a phone number, WA username, verified name, or non-fallback display name. Echoed `*@lid` rows without enrichment remain contacts but are not counted as resolved.
 - Active usync is only an enrichment path. Network/proxy/dial/timeout failures must not make the contacts UI fail: wa-app returns the existing local projection and `queried_count` while leaving `resolved_count` unchanged. Non-retryable protocol-shape errors remain surfaced so reverse regressions are still visible.
+- In the current sandbox, unresolved LID username usync responses are structurally valid but contain only echoed `user@jid` plus empty `username` children. The UI and API must therefore treat active usync as best-effort enrichment and must never surface a raw `LID ...` fallback as the contact title when no PN/name is returned.
 
 ## 2026-06-09 app-state mutation key and patch pass
 

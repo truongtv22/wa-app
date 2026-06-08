@@ -1,4 +1,5 @@
 import { ExternalLink, FileText, Image, ListChecks, MapPin, Package, Smile, UserRound } from 'lucide-react';
+import { normalizeWaMessageText } from './wa-message-rich-text';
 
 const RICH_PREFIXES = [
   { prefix: '[商品]', label: '商品', icon: Package },
@@ -24,8 +25,9 @@ const RICH_PREFIXES = [
 ];
 
 export function WaMessageContent({ text }: { text: string }) {
-  const rich = parseRichMessage(text);
-  if (!rich) return <MessageLines text={text} />;
+  const displayText = normalizeWaMessageText(text);
+  const rich = parseRichMessage(displayText);
+  if (!rich) return <MessageLines text={displayText} />;
   const Icon = rich.icon;
   return (
     <div className="min-w-0 space-y-2">

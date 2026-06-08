@@ -661,8 +661,13 @@ func waJSONDisplayText(text string) string {
 		return ""
 	}
 	parts := []string{}
-	for _, key := range []string{"display_text", "display_title", "title", "text", "body", "description", "footer_text", "button_text", "cta_button_text", "url_text", "url", "name", "formatted_amount", "formatted_amount_with_currency"} {
+	for _, key := range []string{"display_text", "display_title", "title", "text", "body", "description", "footer_text", "button_text", "cta_button_text", "url_text", "name", "message_origin", "formatted_amount", "formatted_amount_with_currency"} {
 		if part := waJSONTextValue(payload[key]); part != "" {
+			parts = append(parts, part)
+		}
+	}
+	for _, key := range []string{"url", "merchant_url", "consented_users_url", "fallback_url", "web_url", "deeplink_url"} {
+		if part := waJSONURLValue(payload[key]); part != "" {
 			parts = append(parts, part)
 		}
 	}
@@ -680,6 +685,19 @@ func waJSONTextValue(value any) string {
 	return waHumanDisplayText(text)
 }
 
+func waJSONURLValue(value any) string {
+	text, ok := value.(string)
+	if !ok {
+		return ""
+	}
+	text = strings.TrimSpace(text)
+	lower := strings.ToLower(text)
+	if text == "" || (!strings.HasPrefix(lower, "http://") && !strings.HasPrefix(lower, "https://")) {
+		return ""
+	}
+	return trimWARunes(text, waDisplayTextMaxRunes)
+}
+
 func waJSONNestedTextValues(value any, depth int) []string {
 	if depth > 4 {
 		return nil
@@ -687,8 +705,13 @@ func waJSONNestedTextValues(value any, depth int) []string {
 	switch typed := value.(type) {
 	case map[string]any:
 		parts := []string{}
-		for _, key := range []string{"display_text", "display_title", "title", "text", "body", "description", "footer_text", "button_text", "cta_button_text", "url_text", "url", "name"} {
+		for _, key := range []string{"display_text", "display_title", "title", "text", "body", "description", "footer_text", "button_text", "cta_button_text", "url_text", "name"} {
 			if part := waJSONTextValue(typed[key]); part != "" {
+				parts = append(parts, part)
+			}
+		}
+		for _, key := range []string{"url", "merchant_url", "consented_users_url", "fallback_url", "web_url", "deeplink_url"} {
+			if part := waJSONURLValue(typed[key]); part != "" {
 				parts = append(parts, part)
 			}
 		}
