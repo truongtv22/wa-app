@@ -67,11 +67,10 @@ export function WaAccountInfoRoute() {
 export function WaInboxRoute() {
   const { contactID = '' } = useParams();
   const account = useRouteAccount();
-  const { accounts, accountsLoading, connections } = useWaContext();
+  const { accounts, accountsLoading } = useWaContext();
   if (accountsLoading) return <PageCenter><LoadingText>加载消息...</LoadingText></PageCenter>;
   if (!account) return <AccountFallback accounts={accounts} />;
-  const accountID = waAccountID(account);
-  return <WaInbox account={account} connection={connections.get(accountID)} contactID={contactID} />;
+  return <WaInbox account={account} contactID={contactID} />;
 }
 
 function useRouteAccount() {

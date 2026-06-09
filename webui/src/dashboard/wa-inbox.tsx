@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Navigate } from 'react-router';
-import type { LongConnectionState } from '../proto/byte/v/forge/waapp/v1/messaging';
 import type { WAAccount } from '../proto/byte/v/forge/waapp/v1/profile';
 import { deleteWaContact, deleteWaMessagesForMe, getWaContacts, getWaMessages, markWaMessagesRead, waAccountID, waKeys } from './wa-api';
 import { useWaContactAutoResolve } from './wa-contact-resolve';
@@ -12,7 +11,7 @@ import { waContactPath } from './wa-route-paths';
 
 type MarkReadInput = { messageIDs?: string[]; contactID?: string };
 
-export function WaInbox({ account, connection, contactID }: { account: WAAccount; connection?: LongConnectionState; contactID: string }) {
+export function WaInbox({ account, contactID }: { account: WAAccount; contactID: string }) {
   const accountID = waAccountID(account);
   const queryClient = useQueryClient();
   const contactsQuery = useQuery({ queryKey: waKeys.contacts(accountID), queryFn: () => getWaContacts(accountID), enabled: Boolean(accountID), refetchInterval: 30000 });
@@ -56,7 +55,7 @@ export function WaInbox({ account, connection, contactID }: { account: WAAccount
   return (
     <section className="grid h-dvh min-h-0 md:grid-cols-[320px_minmax(0,1fr)]">
       <WaContactList accountID={accountID} contacts={contacts} selectedID={activeContactID} loading={contactsQuery.isLoading} error={error} deletingID={deleteContactMutation.variables} onOpenContact={(id) => openContact(id, markReadMutation.mutate)} onDeleteContact={(id) => deleteContact(id, deleteContactMutation.mutate)} />
-      <WaChatThread account={account} connection={connection} contact={activeContact} events={threadEvents} loading={messagesQuery.isFetching || contactsQuery.isFetching} error={error} actionBusy={markReadMutation.isPending || deleteMutation.isPending} onMarkRead={() => markThreadRead(threadEvents, markReadMutation.mutate)} onDeleteMessage={(messageID) => deleteMessageForMe(messageID, deleteMutation.mutate)} />
+      <WaChatThread contact={activeContact} events={threadEvents} loading={messagesQuery.isFetching || contactsQuery.isFetching} error={error} actionBusy={markReadMutation.isPending || deleteMutation.isPending} onMarkRead={() => markThreadRead(threadEvents, markReadMutation.mutate)} onDeleteMessage={(messageID) => deleteMessageForMe(messageID, deleteMutation.mutate)} />
     </section>
   );
 }
