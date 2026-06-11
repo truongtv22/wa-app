@@ -27,7 +27,7 @@ const (
 	waAppStateIntegrityInfo      = "WhatsApp Patch Integrity"
 )
 
-func buildNativePushNamePatch(state *nativeState, displayName string) (chatdNode, nativeAppStateCollection, error) {
+func buildNativePushNamePatch(state *nativeState, displayName string, timestampMS uint64) (chatdNode, nativeAppStateCollection, error) {
 	keyID, keyData, err := selectedNativeAppStateKey(state)
 	if err != nil {
 		return chatdNode{}, nativeAppStateCollection{}, err
@@ -38,7 +38,7 @@ func buildNativePushNamePatch(state *nativeState, displayName string) (chatdNode
 	}
 	current := normalizedNativeAppStateCollection(state, waAppStatePushNameCollection)
 	index := []byte(`["` + waAppStatePushNameIndex + `"]`)
-	encodedAction := encodeNativePushNameSyncAction(index, displayName)
+	encodedAction := encodeNativePushNameSyncAction(index, displayName, timestampMS)
 	encryptedAction, err := encryptNativeAppStateValue(encodedAction, keys.valueEncryption)
 	if err != nil {
 		return chatdNode{}, nativeAppStateCollection{}, err
@@ -176,9 +176,10 @@ func nextNativeAppStateCollection(collection nativeAppStateCollection, indexMAC 
 	return next, nextHash, nil
 }
 
-func encodeNativePushNameSyncAction(index []byte, displayName string) []byte {
+func encodeNativePushNameSyncAction(index []byte, displayName string, timestampMS uint64) []byte {
 	pushName := protoBytes(1, []byte(displayName))
-	value := protoBytes(7, pushName)
+	value := protoVarint(1, timestampMS)
+	value = protoBytesInto(value, 7, pushName)
 	out := []byte{}
 	out = protoBytesInto(out, 1, index)
 	out = protoBytesInto(out, 2, value)

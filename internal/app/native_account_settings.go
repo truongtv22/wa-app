@@ -39,7 +39,11 @@ func (e *NativeEngine) ApplyAccountSettings(ctx context.Context, input EngineAcc
 }
 
 func (e *NativeEngine) applyAccountProfileName(ctx context.Context, input EngineAccountSettingsInput, state nativeState, proxyURL string) EngineAccountSettingsResult {
-	request, collection, err := buildNativePushNamePatch(&state, input.DisplayName)
+	timestampMS := e.clock.Now().UnixMilli()
+	if timestampMS < 0 {
+		timestampMS = 0
+	}
+	request, collection, err := buildNativePushNamePatch(&state, input.DisplayName, uint64(timestampMS))
 	if err != nil {
 		return EngineAccountSettingsResult{Status: waappv1.AccountSettingsOperationStatus_ACCOUNT_SETTINGS_OPERATION_STATUS_REJECTED, Err: err}
 	}
