@@ -6,7 +6,6 @@ import type { LongConnectionState } from '../proto/byte/v/forge/waapp/v1/messagi
 import type { WAAccount } from '../proto/byte/v/forge/waapp/v1/profile';
 import { waAccountID } from './wa-api';
 import { WaAccountAvatar } from './wa-account-avatar';
-import { WhatsAppIcon } from './wa-brand-icon';
 import { WaConnectionDot } from './wa-connection-dot';
 import { waAccountPath, waChatsPath } from './wa-route-paths';
 import {
@@ -35,8 +34,8 @@ type RailProps = { accounts: WAAccount[]; selectedID: string; avatarVersion: str
 type AccountItemProps = { account: WAAccount; selected: boolean; avatarVersion: string; connection?: LongConnectionState; loading: boolean };
 
 const collapsedIconButtonClass = 'group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:size-12! group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0!';
-const accountButtonClass = 'h-14 gap-2 p-1! group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:size-14! group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-1!';
-const footerButtonClass = 'group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:justify-center';
+const accountButtonClass = 'h-12 gap-2 p-1! group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:size-12! group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-1!';
+const footerButtonClass = 'h-10 group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:justify-center';
 const collapsedTextClass = 'group-data-[collapsible=icon]:hidden';
 
 export function WaAccountRail({ accounts, selectedID, avatarVersion, connections, loading, connectionsLoading, hasNextPage, loadingMore, onLoadMore }: RailProps) {
@@ -47,10 +46,7 @@ export function WaAccountRail({ accounts, selectedID, avatarVersion, connections
   return (
     <Sidebar collapsible="icon" aria-label="WA 账号" className="border-r border-border">
       <SidebarHeader className="border-b border-sidebar-border">
-        <SidebarMenu>
-          <SidebarMenuItem><RailBrand /></SidebarMenuItem>
-        </SidebarMenu>
-        {expanded ? <RailSearch value={query} onChange={setQuery} /> : null}
+        <RailHeader value={query} onChange={setQuery} />
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup className="p-1">
@@ -76,22 +72,22 @@ export function WaAccountRail({ accounts, selectedID, avatarVersion, connections
   );
 }
 
-function RailBrand() {
+function RailHeader({ value, onChange }: { value: string; onChange: (value: string) => void }) {
   const { state, toggleSidebar } = useSidebar();
   if (state === 'collapsed') {
-    return <SidebarMenuButton size="lg" tooltip="展开账号栏" aria-label="展开账号栏" className={collapsedIconButtonClass} onClick={toggleSidebar}><PanelLeftOpen className="size-6!" /></SidebarMenuButton>;
+    return (
+      <SidebarMenu>
+        <SidebarMenuItem>
+          <SidebarMenuButton size="lg" tooltip="展开账号栏" aria-label="展开账号栏" className={collapsedIconButtonClass} onClick={toggleSidebar}><PanelLeftOpen className="size-6!" /></SidebarMenuButton>
+        </SidebarMenuItem>
+      </SidebarMenu>
+    );
   }
   return (
-    <div className="flex h-12 items-center justify-between rounded-md px-2">
-      <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-emerald-50"><WhatsAppIcon className="size-6" /></span>
+    <div className="flex h-12 items-center gap-2">
+      <SidebarInput className="h-9" value={value} onChange={(event) => onChange(event.target.value)} placeholder="搜索手机号" aria-label="搜索账号" />
       <Button variant="ghost" size="icon-sm" aria-label="收起账号栏" title="收起账号栏" onClick={toggleSidebar}><PanelLeftClose /></Button>
     </div>
-  );
-}
-
-function RailSearch({ value, onChange }: { value: string; onChange: (value: string) => void }) {
-  return (
-    <SidebarInput value={value} onChange={(event) => onChange(event.target.value)} placeholder="搜索手机号" aria-label="搜索账号" />
   );
 }
 
@@ -103,7 +99,7 @@ function AccountItem({ account, selected, avatarVersion, connection, loading }: 
       <SidebarMenuButton asChild size="lg" isActive={selected} tooltip={title} className={accountButtonClass}>
         <NavLink to={waChatsPath(id)} title={title} aria-label={title}>
           <span className="relative shrink-0">
-            <WaAccountAvatar account={account} version={avatarVersion} size="lg" />
+            <WaAccountAvatar account={account} version={avatarVersion} size="md" />
             <WaConnectionDot className="absolute bottom-0 right-0" connection={connection} loading={loading} />
           </span>
           <span className={`min-w-0 flex-1 ${collapsedTextClass}`}>
