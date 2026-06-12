@@ -67,9 +67,9 @@ function waMetrics(status: WaProbeStatus, showSms: boolean): Array<{ label: stri
   }
   if (status.accountFlow === 'rate_limited') {
     return [
-      { label: '请求', value: '冷却中', tone: 'warn' },
-      { label: '阶段', value: accountFlowLabel(status.accountFlow), tone: 'warn' },
-      { label: '原因', value: accountReasonLabel(status.accountRawReason, status.failureReason, status.accountRawStatus) || '请求过于频繁，请稍后再试', tone: 'warn' },
+      { label: i18n.t('result.metric.request', '请求'), value: i18n.t('result.metric.cooling_down', '冷却中'), tone: 'warn' },
+      { label: i18n.t('result.meta.stage', '阶段'), value: accountFlowLabel(status.accountFlow), tone: 'warn' },
+      { label: i18n.t('result.metric.reason', '原因'), value: accountReasonLabel(status.accountRawReason, status.failureReason, status.accountRawStatus) || i18n.t('result.metric.reason_retry_later', '请求过于频繁，请稍后再试'), tone: 'warn' },
     ];
   }
   if (status.requestFailed) {
