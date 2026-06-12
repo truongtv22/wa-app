@@ -307,9 +307,9 @@ func nativeDeviceMapFields(state nativeState) map[string]string {
 }
 
 const (
-	nativeDefaultFeo2QueryStatus   = "did_not_query"
+	nativeDefaultFeo2QueryStatus   = "error_security_exception"
 	legacyNativeFeo2QueryStatus    = "error_security_exception"
-	nativeDefaultDebugBridgeStatus = "0"
+	nativeDefaultDebugBridgeStatus = "1"
 )
 
 func nativeDefaultDeviceMapFields() map[string]string {
