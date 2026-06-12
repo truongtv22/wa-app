@@ -21,7 +21,7 @@ type Props = {
 };
 
 export function WaRegistrationChannelButtons({ status, elapsedSeconds, disabled, onStart }: Props) {
-  const methods = status ? visibleRegistrationChannelMethods.filter((method) => registrationMethodStatus(status, method.value)) : visibleRegistrationChannelMethods;
+  const methods = channelMethods(status);
   return (
     <div className="grid gap-2 sm:grid-cols-2">
       {methods.map((method) => {
@@ -47,6 +47,11 @@ export function WaRegistrationChannelButtons({ status, elapsedSeconds, disabled,
       })}
     </div>
   );
+}
+
+function channelMethods(status: WaProbeStatus | null) {
+  const methods = status ? visibleRegistrationChannelMethods.filter((method) => registrationMethodStatus(status, method.value)) : visibleRegistrationChannelMethods;
+  return [...methods.filter((method) => method.directRequest), ...methods.filter((method) => !method.directRequest)];
 }
 
 function channelState(method: RegistrationChannelMethodOption, status: WaProbeStatus | null, elapsedSeconds: number) {

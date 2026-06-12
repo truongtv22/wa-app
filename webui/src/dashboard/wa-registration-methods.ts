@@ -22,17 +22,17 @@ export const selectableRegistrationMethods: SelectableRegistrationMethodOption[]
   methodOption(VerificationDeliveryMethod.VERIFICATION_DELIVERY_METHOD_SEND_SMS, 'send_sms'),
 ];
 export const visibleRegistrationChannelMethods: RegistrationChannelMethodOption[] = [
-  channelMethodOption(VerificationDeliveryMethod.VERIFICATION_DELIVERY_METHOD_FLASH, 'flash', false),
   ...selectableRegistrationMethods.map((method) => ({ ...method, directRequest: true })),
+  channelMethodOption(VerificationDeliveryMethod.VERIFICATION_DELIVERY_METHOD_FLASH, 'flash', false),
 ];
 
 export const apkSupportedLoginRegistrationMethods = [
   loginMethodOption(RegistrationLoginMethod.REGISTRATION_LOGIN_METHOD_SMS, 'sms'),
   loginMethodOption(RegistrationLoginMethod.REGISTRATION_LOGIN_METHOD_VOICE, 'voice'),
-  loginMethodOption(RegistrationLoginMethod.REGISTRATION_LOGIN_METHOD_FLASH, 'flash'),
   loginMethodOption(RegistrationLoginMethod.REGISTRATION_LOGIN_METHOD_WA_OLD, 'wa_old'),
   loginMethodOption(RegistrationLoginMethod.REGISTRATION_LOGIN_METHOD_EMAIL_OTP, 'email_otp'),
   loginMethodOption(RegistrationLoginMethod.REGISTRATION_LOGIN_METHOD_SEND_SMS, 'send_sms'),
+  loginMethodOption(RegistrationLoginMethod.REGISTRATION_LOGIN_METHOD_FLASH, 'flash'),
   loginMethodOption(RegistrationLoginMethod.REGISTRATION_LOGIN_METHOD_SILENT_AUTH, 'silent_auth'),
   loginMethodOption(RegistrationLoginMethod.REGISTRATION_LOGIN_METHOD_SILENT_AUTH_TS43, 'silent_auth_ts_43'),
   loginMethodOption(RegistrationLoginMethod.REGISTRATION_LOGIN_METHOD_AUTOCONF, 'autoconf'),

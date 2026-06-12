@@ -38,6 +38,7 @@ type nativeState struct {
 	ChatRoutingInfo string                          `json:"chat_routing_info,omitempty"`
 	ChatConnection  nativeChatConnectionState       `json:"chat_connection,omitempty"`
 	ChatStatic      nativeCurveKeyPair              `json:"chat_static"`
+	Attestation     nativeSoftwareAttestation       `json:"attestation,omitempty"`
 	Signal          nativeSignalState               `json:"signal"`
 	AppState        nativeAppState                  `json:"app_state,omitempty"`
 	ContactHints    []waContactHint                 `json:"contact_hints,omitempty"`
@@ -62,6 +63,7 @@ type nativePhoneProfile struct {
 	IDHex               string            `json:"id_hex"`
 	BackupToken         string            `json:"backup_token"`
 	BackupTokenHex      string            `json:"backup_token_hex"`
+	AdvertisingID       string            `json:"advertising_id,omitempty"`
 	AdditionalMapFields map[string]string `json:"additional_map_fields"`
 }
 
@@ -230,6 +232,14 @@ func newNativeState(phone *waappv1.PhoneTarget) (nativeState, error) {
 	if err != nil {
 		return nativeState{}, err
 	}
+	chatStaticPublic, err := chatStatic.publicBytes()
+	if err != nil {
+		return nativeState{}, err
+	}
+	attestation, err := newNativeSoftwareAttestation(chatStaticPublic, time.Now().UTC())
+	if err != nil {
+		return nativeState{}, err
+	}
 	identity, err := newNativeCurveKeyPair()
 	if err != nil {
 		return nativeState{}, err
@@ -276,6 +286,7 @@ func newNativeState(phone *waappv1.PhoneTarget) (nativeState, error) {
 		AuthKey:       chatStatic.Public,
 		Profile:       profile,
 		ChatStatic:    chatStatic,
+		Attestation:   attestation,
 		Signal: nativeSignalState{
 			RegistrationID:   regID,
 			Identity:         identity,
@@ -320,16 +331,42 @@ var nativeOperators = map[string][][2]string{
 	"US":   {{"310", "260"}, {"310", "410"}, {"311", "480"}},
 	"CN":   {{"460", "00"}, {"460", "01"}, {"460", "11"}},
 	"PL":   {{"260", "01"}, {"260", "02"}, {"260", "06"}},
+	"VN":   {{"452", "04"}, {"452", "02"}, {"452", "01"}, {"452", "05"}, {"452", "07"}},
 	"NONE": {{"", ""}},
 }
 
+func nativeProfileCountry(phone *waappv1.PhoneTarget) string {
+	if country := strings.ToUpper(strings.TrimSpace(phone.GetCountryIso2())); country != "" {
+		return country
+	}
+	switch phoneCC(phone) {
+	case "1":
+		return "US"
+	case "48":
+		return "PL"
+	case "84":
+		return "VN"
+	case "86":
+		return "CN"
+	default:
+		return ""
+	}
+}
+
 var nativeRadioTypes = []string{"1", "2", "3", "9", "13", "20"}
+
+func nativeRandomRadioType(rng *mrand.Rand) string {
+	if rng == nil || len(nativeRadioTypes) == 0 {
+		return "1"
+	}
+	return nativeRadioTypes[rng.Intn(len(nativeRadioTypes))]
+}
 
 func buildNativePhoneProfile(phone *waappv1.PhoneTarget) nativePhoneProfile {
 	seed := int64(binary.BigEndian.Uint64(randomBytes(8)))
 	rng := mrand.New(mrand.NewSource(seed))
 	model := nativeDeviceModels[rng.Intn(len(nativeDeviceModels))]
-	country := strings.ToUpper(strings.TrimSpace(phone.GetCountryIso2()))
+	country := nativeProfileCountry(phone)
 	ops := nativeOperators[country]
 	if len(ops) == 0 {
 		ops = nativeOperators["NONE"]
@@ -347,15 +384,15 @@ func buildNativePhoneProfile(phone *waappv1.PhoneTarget) nativePhoneProfile {
 	}
 	ram := model.MinRAMGiB + rng.Float64()*(model.MaxRAMGiB-model.MinRAMGiB)
 	additionalFields := map[string]string{
-		"network_radio_type":    "1",
+		"network_radio_type":    nativeRandomRadioType(rng),
 		"pid":                   fmt.Sprintf("%d", 10000+rng.Intn(50000)),
 		"simnum":                simnum,
 		"hasinrc":               "1",
 		"rc":                    "0",
 		"device_ram":            fmt.Sprintf("%.2f", ram),
-		"db":                    "1",
+		"db":                    nativeDefaultDebugBridgeStatus,
 		"recaptcha":             `{"stage":"ABPROP_DISABLED"}`,
-		"feo2_query_status":     "error_security_exception",
+		"feo2_query_status":     nativeDefaultFeo2QueryStatus,
 		"network_operator_name": "",
 		"sim_operator_name":     "",
 	}
@@ -383,8 +420,25 @@ func buildNativePhoneProfile(phone *waappv1.PhoneTarget) nativePhoneProfile {
 		IDHex:               hex.EncodeToString(id),
 		BackupToken:         pctBytes(backup),
 		BackupTokenHex:      hex.EncodeToString(backup),
+		AdvertisingID:       newUUIDString(),
 		AdditionalMapFields: additionalFields,
 	}
+}
+
+func nativeAdvertisingID(state nativeState) string {
+	if value := strings.TrimSpace(state.Profile.AdvertisingID); value != "" {
+		return value
+	}
+	seed := sha256.Sum256([]byte(strings.Join([]string{
+		"byte-v-forge-wa-advertising-id/v1",
+		state.Profile.PhoneSHA256,
+		state.Profile.FDID,
+		state.Profile.ExpIDUUID,
+	}, "|")))
+	raw := append([]byte{}, seed[:16]...)
+	raw[6] = (raw[6] & 0x0f) | 0x40
+	raw[8] = (raw[8] & 0x3f) | 0x80
+	return fmt.Sprintf("%x-%x-%x-%x-%x", raw[0:4], raw[4:6], raw[6:8], raw[8:10], raw[10:])
 }
 
 func uuidPair() (string, string) {
@@ -482,15 +536,18 @@ func renderNativePlain(params map[string]string, rawKeys map[string]struct{}) st
 
 func stableParamOrder(params map[string]string) []string {
 	preferred := []string{
-		"cc", "in", "method", "lg", "lc", "fdid", "expid", "access_session_id",
-		"id", "backup_token", "code", "auth_response", "context", "advertising_id",
-		"login", "type", "token", "authkey", "e_ident", "e_keytype", "e_regid",
+		"cc", "in", "lg", "lc", "fdid", "expid", "access_session_id",
+		"id", "backup_token", "code", "auth_response", "token", "method", "context",
+		"clicked_education_link", "manage_call_permission", "call_log_permission", "client_start_message",
+		"advertising_id", "login", "type", "authkey", "e_ident", "e_keytype", "e_regid",
 		"e_skey_id", "e_skey_val", "e_skey_sig",
 		"mistyped", "reason", "hasav", "offline_ab", "client_metrics", "entered",
 		"read_phone_permission_granted", "sim_state", "network_operator_name",
 		"sim_operator_name", "device_name", "backup_token_error", "mcc", "mnc",
 		"sim_mcc", "sim_mnc", "education_screen_displayed", "prefer_sms_over_flash",
-		"network_radio_type", "simnum", "hasinrc", "pid", "rc", "device_ram", "gpia",
+		"network_radio_type", "simnum", "hasinrc", "pid", "rc",
+		"sim_type", "airplane_mode_type", "cellular_strength", "roaming_type",
+		"device_ram", "gpia",
 		"db", "recaptcha", "_ge", "_gi", "_gg", "_gp", "_ga", "aid",
 		"feo2_query_status", "is_foa_fdid_app_installed", "language_selector_time_spent",
 		"language_selector_clicked_count",

@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"crypto/hmac"
 	"crypto/sha1"
 	"encoding/base64"
@@ -45,6 +46,89 @@ func (e *NativeEngine) registrationToken(phone *waappv1.PhoneTarget, state nativ
 		return token
 	}
 	return state.LastCodeParams["token"]
+}
+
+func (e *NativeEngine) codeRequestOrderedParams(ctx context.Context, phone *waappv1.PhoneTarget, method waappv1.VerificationDeliveryMethod, state nativeState, authCodeContext string) (orderedParams, error) {
+	methodName := registrationMethodName(method, "sms")
+	fields := nativeDeviceMapFields(state)
+	params := orderedParams{}
+	params.set("cc", phoneCC(phone), false)
+	params.set("in", phoneNational(phone), false)
+	params.set("lg", "en", false)
+	params.set("lc", "US", false)
+	params.set("fdid", state.Profile.FDID, false)
+	params.set("expid", state.Profile.ExpID, false)
+	if state.Profile.AccessSessionID != "" {
+		params.set("access_session_id", state.Profile.AccessSessionID, false)
+	}
+	params.set("id", state.Profile.ID, true)
+	params.set("backup_token", state.Profile.BackupToken, true)
+	if token := e.registrationToken(phone, state); token != "" {
+		params.set("token", token, false)
+	}
+	params.set("method", methodName, false)
+	if contextValue := strings.TrimSpace(authCodeContext); contextValue != "" {
+		params.set("context", contextValue, false)
+	}
+	if advertisingID := nativeAdvertisingID(state); advertisingID != "" && shouldSendNativeAdvertisingID(phone) {
+		params.set("advertising_id", advertisingID, false)
+	}
+	applyNativeE2EParams(&params, state)
+	applyNativeCodeRequestMapParams(&params, fields)
+	capture, err := e.wamsysProvider().RegistrationMaterial(ctx, wamsysMaterialInput{Kind: waappv1.RegistrationRequestKind_REGISTRATION_REQUEST_KIND_CODE, Phone: phone, State: state})
+	if err != nil {
+		return nil, err
+	}
+	applyOrderedWamsysKey(&params, capture, "gpia")
+	addOptionalRawParam(&params, "db", fields["db"])
+	addOptionalRawParam(&params, "recaptcha", fields["recaptcha"])
+	applyOrderedWamsysExcept(&params, capture, map[string]struct{}{"gpia": {}})
+	addOptionalRawParam(&params, "feo2_query_status", fields["feo2_query_status"])
+	return params, nil
+}
+
+func applyNativeE2EParams(params *orderedParams, state nativeState) {
+	params.set("authkey", state.AuthKey, false)
+	params.set("e_ident", state.KeyBundle.IdentityPublic, false)
+	params.set("e_keytype", state.KeyBundle.KeyType, false)
+	params.set("e_regid", state.KeyBundle.RegID, false)
+	params.set("e_skey_id", state.KeyBundle.SignedKeyID, false)
+	params.set("e_skey_val", state.KeyBundle.SignedKeyValue, false)
+	params.set("e_skey_sig", state.KeyBundle.SignedKeySig, false)
+}
+
+func applyNativeCodeRequestMapParams(params *orderedParams, fields map[string]string) {
+	addOptionalRawParam(params, "mistyped", fields["mistyped"])
+	addRawParam(params, "reason", "")
+	addOptionalRawParam(params, "hasav", fields["hasav"])
+	addRawParam(params, "client_metrics", nativeCodeClientMetrics())
+	addOptionalRawParam(params, "mcc", fields["mcc"])
+	addOptionalRawParam(params, "mnc", fields["mnc"])
+	addOptionalRawParam(params, "sim_mcc", fields["sim_mcc"])
+	addOptionalRawParam(params, "sim_mnc", fields["sim_mnc"])
+	addRawParam(params, "education_screen_displayed", "false")
+	addRawParam(params, "prefer_sms_over_flash", firstNonEmpty(fields["prefer_sms_over_flash"], "false"))
+	addOptionalRawParam(params, "network_radio_type", fields["network_radio_type"])
+	addOptionalRawParam(params, "simnum", fields["simnum"])
+	addOptionalRawParam(params, "hasinrc", fields["hasinrc"])
+	addOptionalRawParam(params, "pid", fields["pid"])
+	addOptionalRawParam(params, "rc", fields["rc"])
+	addOptionalRawParam(params, "sim_type", fields["sim_type"])
+	addOptionalRawParam(params, "airplane_mode_type", fields["airplane_mode_type"])
+	addOptionalRawParam(params, "cellular_strength", fields["cellular_strength"])
+	addOptionalRawParam(params, "roaming_type", fields["roaming_type"])
+	addOptionalRawParam(params, "device_ram", fields["device_ram"])
+}
+
+func addOptionalRawParam(params *orderedParams, key string, value string) {
+	if strings.TrimSpace(value) == "" {
+		return
+	}
+	addRawParam(params, key, value)
+}
+
+func addRawParam(params *orderedParams, key string, value string) {
+	params.set(key, pctBytes([]byte(value)), true)
 }
 
 func registrationMethodName(method waappv1.VerificationDeliveryMethod, fallback string) string {
@@ -148,14 +232,15 @@ func applyNativeRawParamMap(params map[string]string, raw map[string]struct{}, v
 func codeDeviceMap(method string, state nativeState) map[string]string {
 	fields := nativeDeviceMapFields(state)
 	out := map[string]string{
-		"mistyped":                   "7",
 		"reason":                     "",
-		"hasav":                      "2",
 		"client_metrics":             nativeCodeClientMetrics(),
 		"education_screen_displayed": "false",
-		"prefer_sms_over_flash":      "false",
-		"_ge":                        `{"sb":false,"sv":false}`,
+		"prefer_sms_over_flash":      nativePreferSMSOverFlash(state),
 		"network_radio_type":         fields["network_radio_type"],
+		"sim_type":                   fields["sim_type"],
+		"airplane_mode_type":         fields["airplane_mode_type"],
+		"cellular_strength":          fields["cellular_strength"],
+		"roaming_type":               fields["roaming_type"],
 		"simnum":                     fields["simnum"],
 		"hasinrc":                    fields["hasinrc"],
 		"pid":                        fields["pid"],
@@ -169,10 +254,19 @@ func codeDeviceMap(method string, state nativeState) map[string]string {
 		"sim_mcc":                    fields["sim_mcc"],
 		"sim_mnc":                    fields["sim_mnc"],
 	}
-	if method == "flash" {
-		out["prefer_sms_over_flash"] = "false"
-	}
+	addNonEmptyNativeCodeField(out, fields, "mistyped")
+	addNonEmptyNativeCodeField(out, fields, "hasav")
 	return out
+}
+
+func nativePreferSMSOverFlash(state nativeState) string {
+	return firstNonEmpty(state.Profile.AdditionalMapFields["prefer_sms_over_flash"], "false")
+}
+
+func addNonEmptyNativeCodeField(out map[string]string, fields map[string]string, key string) {
+	if value := strings.TrimSpace(fields[key]); value != "" {
+		out[key] = value
+	}
 }
 
 func registerDeviceMap(method string, state nativeState) map[string]string {
@@ -203,27 +297,45 @@ func nativeDeviceMapFields(state nativeState) map[string]string {
 		}
 		fields[key] = value
 	}
-	defaults := map[string]string{
+	for key, value := range nativeDefaultDeviceMapFields() {
+		fields[key] = firstNonEmpty(fields[key], value)
+	}
+	if fields["feo2_query_status"] == legacyNativeFeo2QueryStatus {
+		fields["feo2_query_status"] = nativeDefaultFeo2QueryStatus
+	}
+	return fields
+}
+
+const (
+	nativeDefaultFeo2QueryStatus   = "error_security_exception"
+	legacyNativeFeo2QueryStatus    = "error_security_exception"
+	nativeDefaultDebugBridgeStatus = "1"
+)
+
+func nativeDefaultDeviceMapFields() map[string]string {
+	return map[string]string{
 		"network_radio_type":    "1",
+		"sim_type":              "1",
+		"airplane_mode_type":    "0",
+		"cellular_strength":     "5",
+		"roaming_type":          "0",
+		"mistyped":              "7",
+		"hasav":                 "2",
 		"pid":                   "29418",
 		"simnum":                "0",
 		"hasinrc":               "1",
 		"rc":                    "0",
 		"device_ram":            "3.53",
-		"db":                    "1",
+		"db":                    nativeDefaultDebugBridgeStatus,
 		"recaptcha":             `{"stage":"ABPROP_DISABLED"}`,
-		"feo2_query_status":     "error_security_exception",
+		"feo2_query_status":     nativeDefaultFeo2QueryStatus,
 		"network_operator_name": "",
 		"sim_operator_name":     "",
-		"mcc":                   "",
-		"mnc":                   "",
-		"sim_mcc":               "",
-		"sim_mnc":               "",
+		"mcc":                   "000",
+		"mnc":                   "000",
+		"sim_mcc":               "000",
+		"sim_mnc":               "000",
 	}
-	for key, value := range defaults {
-		fields[key] = firstNonEmpty(fields[key], value)
-	}
-	return fields
 }
 
 func nativeCodeClientMetrics() string {
@@ -308,7 +420,6 @@ func existDeviceMap(state nativeState) map[string]string {
 		"hasinrc":                         fields["hasinrc"],
 		"pid":                             fields["pid"],
 		"rc":                              fields["rc"],
-		"_ge":                             `{"sb":false,"sv":false}`,
 		"mcc":                             fields["mcc"],
 		"mnc":                             fields["mnc"],
 		"sim_mcc":                         fields["sim_mcc"],
@@ -330,8 +441,7 @@ func parseExistProbeResult(data map[string]any) EngineProbeResult {
 	protocolRejected := baseProtocolRejected
 	notRegistered := false
 	registeredKnown := registered || invalidNumber
-	smsRouteUnavailable := existRouteUnavailableReason(reason)
-	canSendSMS := smsProbeAvailableByCooldownOnly(smsWait, smsWaitExhausted, blocked, protocolRejected, invalidNumber, rateLimited, smsRouteUnavailable)
+	canSendSMS := smsProbeAvailableByCooldownOnly(smsWait, smsWaitExhausted, blocked, protocolRejected, invalidNumber, rateLimited)
 	methods := methodsFromStatuses(methodStatuses)
 	reachable := !protocolRejected && !blocked && !invalidNumber && !rateLimited && (existReachableStatus(status) || registered || notRegistered || status != "" || reason != "")
 	result := EngineProbeResult{
@@ -418,16 +528,6 @@ func existRateLimitedReason(reason string) bool {
 		return false
 	}
 }
-
-func existRouteUnavailableReason(reason string) bool {
-	switch reason {
-	case "no_routes", "route_not_found", "route_unavailable":
-		return true
-	default:
-		return false
-	}
-}
-
 func existRegisteredSignal(status string, reason string, data map[string]any) bool {
 	if existRegisteredReason(reason) {
 		return true
@@ -777,8 +877,8 @@ func verificationSMSWaitExhausted(data map[string]any) bool {
 	return verificationMethodWaitStatus(data, "sms", true).Exhausted
 }
 
-func smsProbeAvailableByCooldownOnly(smsWait int64, smsWaitExhausted bool, blocked bool, protocolRejected bool, invalidNumber bool, rateLimited bool, routeUnavailable bool) bool {
-	return smsWait <= 0 && !smsWaitExhausted && !blocked && !protocolRejected && !invalidNumber && !rateLimited && !routeUnavailable
+func smsProbeAvailableByCooldownOnly(smsWait int64, smsWaitExhausted bool, blocked bool, protocolRejected bool, invalidNumber bool, rateLimited bool) bool {
+	return smsWait <= 0 && !smsWaitExhausted && !blocked && !protocolRejected && !invalidNumber && !rateLimited
 }
 
 func stringList(value any) []string {
@@ -880,4 +980,20 @@ func jsonValuePresent(value any) bool {
 		return strings.TrimSpace(text) != ""
 	}
 	return true
+}
+
+func shouldSendNativeAdvertisingID(phone *waappv1.PhoneTarget) bool {
+	country := strings.ToUpper(strings.TrimSpace(phone.GetCountryIso2()))
+	if country == "" {
+		return true
+	}
+	_, blocked := nativeAdvertisingIDSuppressedCountries[country]
+	return !blocked
+}
+
+var nativeAdvertisingIDSuppressedCountries = map[string]struct{}{
+	"AT": {}, "BE": {}, "BG": {}, "CY": {}, "CZ": {}, "DE": {}, "DK": {}, "EE": {},
+	"ES": {}, "FI": {}, "FR": {}, "GR": {}, "HR": {}, "HU": {}, "IE": {}, "IT": {},
+	"LT": {}, "LU": {}, "LV": {}, "MT": {}, "NL": {}, "PL": {}, "PT": {}, "RO": {},
+	"SE": {}, "SI": {}, "SK": {},
 }

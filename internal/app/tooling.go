@@ -183,6 +183,13 @@ func (e *NativeEngine) BuildRegistrationRequest(ctx context.Context, req *waappv
 	if kind == waappv1.RegistrationRequestKind_REGISTRATION_REQUEST_KIND_UNSPECIFIED {
 		kind = waappv1.RegistrationRequestKind_REGISTRATION_REQUEST_KIND_CODE
 	}
+	if !hasState {
+		freshState, err := newNativeState(phone)
+		if err != nil {
+			return nil, err
+		}
+		state = freshState
+	}
 	method := registrationMethodFromName(req.GetMethod())
 	methodName := registrationMethodName(method, "sms")
 	language := firstNonEmpty(req.GetLanguage(), "en")
@@ -193,46 +200,40 @@ func (e *NativeEngine) BuildRegistrationRequest(ctx context.Context, req *waappv
 			base, raw := e.existParams(phone, state)
 			params.merge(base, raw)
 		} else {
-			profile := buildNativePhoneProfile(phone)
-			state = nativeState{CC: phoneCC(phone), Phone: phoneNational(phone), Profile: profile}
 			params.set("cc", phoneCC(phone), false)
 			params.set("in", phoneNational(phone), false)
 			params.set("lg", language, false)
 			params.set("lc", locale, false)
-			applyNativeProfileParams(&params, rawKeys, profile, false, true)
-			applyNativeRawMapParams(&params, rawKeys, existDeviceMap(nativeState{Profile: profile}), true)
+			applyNativeProfileParams(&params, rawKeys, state.Profile, false, true)
+			applyNativeRawMapParams(&params, rawKeys, existDeviceMap(state), true)
 		}
 	case waappv1.RegistrationRequestKind_REGISTRATION_REQUEST_KIND_REGISTER:
 		if strings.TrimSpace(req.GetVerificationCode()) == "" {
 			return nil, NewError(waappv1.WaErrorCode_WA_ERROR_CODE_VALIDATION_FAILED, "verification_code is required", false)
 		}
 		if hasState {
-			base, raw := e.registerParams(phone, method, req.GetVerificationCode(), state)
+			base, raw := e.registerParams(phone, method, req.GetVerificationCode(), state, "")
 			params.merge(base, raw)
 		} else {
-			profile := buildNativePhoneProfile(phone)
-			state = nativeState{CC: phoneCC(phone), Phone: phoneNational(phone), Profile: profile}
 			params.set("cc", phoneCC(phone), false)
 			params.set("in", phoneNational(phone), false)
 			params.set("method", methodName, false)
 			params.set("code", req.GetVerificationCode(), false)
-			applyNativeProfileParams(&params, rawKeys, profile, false, true)
-			applyNativeRawMapParams(&params, rawKeys, registerDeviceMap(methodName, nativeState{Profile: profile}), true)
+			applyNativeProfileParams(&params, rawKeys, state.Profile, false, true)
+			applyNativeRawMapParams(&params, rawKeys, registerDeviceMap(methodName, state), true)
 		}
 	default:
 		if hasState {
-			base, raw := e.codeParams(phone, method, state)
+			base, raw := e.codeParams(phone, method, state, "")
 			params.merge(base, raw)
 		} else {
-			profile := buildNativePhoneProfile(phone)
-			state = nativeState{CC: phoneCC(phone), Phone: phoneNational(phone), Profile: profile}
 			params.set("cc", phoneCC(phone), false)
 			params.set("in", phoneNational(phone), false)
 			params.set("method", methodName, false)
 			params.set("lg", language, false)
 			params.set("lc", locale, false)
-			applyNativeProfileParams(&params, rawKeys, profile, false, true)
-			applyNativeRawMapParams(&params, rawKeys, codeDeviceMap(methodName, nativeState{Profile: profile}), true)
+			applyNativeProfileParams(&params, rawKeys, state.Profile, false, true)
+			applyNativeRawMapParams(&params, rawKeys, codeDeviceMap(methodName, state), true)
 		}
 	}
 	if kind != waappv1.RegistrationRequestKind_REGISTRATION_REQUEST_KIND_EXIST {
@@ -259,14 +260,19 @@ func (e *NativeEngine) BuildRegistrationRequest(ctx context.Context, req *waappv
 	resp.Params = params.toProto(req.GetIncludeSensitiveValues())
 	resp.Plaintext = sensitiveOutput(plain, "registration-plaintext", req.GetIncludeSensitiveValues())
 	if req.GetEncryptRequest() {
-		enc, err := encryptWASafe([]byte(plain), defaultWASafeServerPublicKeyHex)
+		if err := ensureNativeSoftwareAttestation(&state); err != nil {
+			return nil, err
+		}
+		envelope, err := buildWASafeEnvelope([]byte(plain), defaultWASafeServerPublicKeyHex, state.Attestation)
 		if err != nil {
 			return nil, err
 		}
-		body := "ENC=" + enc
-		resp.Body = sensitiveOutput(body, "registration-body", req.GetIncludeSensitiveValues())
-		resp.EncSha256 = encHash(enc)
-		resp.EncLength = int32(len(enc))
+		if envelope.Authorization != "" {
+			resp.Headers["Authorization"] = envelope.Authorization
+		}
+		resp.Body = sensitiveOutput(envelope.Body, "registration-body", req.GetIncludeSensitiveValues())
+		resp.EncSha256 = encHash(envelope.Enc)
+		resp.EncLength = int32(len(envelope.Enc))
 	}
 	return resp, nil
 }
@@ -355,6 +361,14 @@ func (p orderedParams) rawKeys() []string {
 		if item.raw {
 			out = append(out, item.key)
 		}
+	}
+	return out
+}
+
+func (p orderedParams) toMap() map[string]string {
+	out := make(map[string]string, len(p))
+	for _, item := range p {
+		out[item.key] = item.val
 	}
 	return out
 }
@@ -556,7 +570,7 @@ func parseWamsysJSON(text string) (*waappv1.WamsysCapture, error) {
 }
 
 func registrationHeaders(userAgent string) map[string]string {
-	return map[string]string{"Content-Type": "application/x-www-form-urlencoded", "User-Agent": userAgent, "WaMsysRequest": "1", "X-Forwarded-Host": defaultNativeHTTPHost, "request_token": strings.ToUpper(newUUIDString())}
+	return map[string]string{"Content-Type": "application/x-www-form-urlencoded", "User-Agent": userAgent, "WaMsysRequest": "1"}
 }
 
 func deriveRegistrationTokenFromAPK(apk []byte, phone string, packageName string) (string, error) {

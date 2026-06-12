@@ -73,6 +73,12 @@ export function outcomeMeta(status: WaProbeStatus, result?: WaWorkflowResponse |
 }
 export function metaItems(status: WaProbeStatus, result?: WaWorkflowResponse | null, showSmsExtra = true): MetaItem[] {
   const entries: MetaItem[] = [];
+  if (status.accountFlow === 'rate_limited') {
+    addItem(entries, '处理阶段', accountFlowLabel(status.accountFlow), 'warn');
+    addItem(entries, 'WA 反馈', accountReasonLabel(status.accountRawReason, status.accountError, status.rejectReason, result?.error_message), 'warn');
+    addItem(entries, '代理', status.proxyText);
+    return entries;
+  }
   if (status.requestFailed) {
     addItem(entries, i18n.t('result.meta.account_status', '账号状态'), accountStatusLabel(status.accountStatus || status.accountRawStatus), 'bad');
     addItem(entries, i18n.t('result.meta.stage', '处理阶段'), accountFlowLabel(status.accountFlow), 'bad');

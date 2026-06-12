@@ -10,7 +10,7 @@
 | --- | --- | --- | --- |
 | App version / UA | 新逆向 APK 为 `2.26.22.78`；服务曾默认 `2.26.21.73` | `/Users/pood1e/workspace/wa-eng/app-release-re/app-release.apk` manifest: `versionName=2.26.22.78`、`versionCode=262207812` | 已补；旧 profile 加载时会刷新 UA 版本，避免继续携带过期版本 |
 | registration token | 新 APK 的 `classes.dex` MD5 改变，旧 baked token prefix 会导致 `/v2/code` 返回 `reason=bad_token`；旧 profile 里保存的上次 token 也会造成复用旧值 | 新 APK 完整 APK-token 派生与运行态默认派生已做 hash 级一致性校验 | 已补；运行态优先按当前 APK 常量重算 token，不复用 stale `LastCodeParams.token` |
-| WAMSYS opaque map | 运行态 `/v2/exist`、`/v2/code` 已接入 App/JNI capture 同形态的精准伪造 WAMSYS material provider；`/v2/register` 默认不额外注入 | `docs/registration-wamsys-re.md` 记录 `gpia/_gi/_gg/_gp/_ga/aid` 由 App/JNI/Play Integrity 链路生成 | 已补；仍需 blocked 样本回归验证 |
+| WAMSYS opaque map | 运行态 `/v2/exist`、`/v2/code` 已接入本地 APK-shape WAMSYS material provider；`gpia/_gi/_gg` 请求级随机，`_gp/_ga/aid` state 级稳定；`/v2/register` 默认不额外注入 | `docs/registration-wamsys-re.md` 记录字段形态与生成边界 | 已补；仍需 blocked 样本回归验证 |
 | `/v2/register` map | 曾复用较完整 device map | `X.C27428CHd.A0F` 的 verify map 只包含 `mistyped/client_metrics/entered/mcc/mnc/sim_mcc/sim_mnc/network_operator_name/sim_operator_name/network_radio_type/simnum/hasinrc/pid/rc` 及可选扩展 | 中；register 阶段过量字段会放大异常指纹 |
 | `/v2/code` map | 缺 `pid`，且 WAMSYS 字段只能通过 tooling 手动构造 | App `/v2/code` capture 中含 `pid` 与 WAMSYS opaque map | 中高 |
 | `/v2/exist` 预检 | `StartRegistration` 已按 `exist -> code` 执行，只有 SMS 可用才进入 `/v2/code` | App after-next 阶段先发 `/v2/exist` / same-device check | 已补；仍需 blocked 样本回归验证 |
@@ -21,6 +21,7 @@
 - `/v2/register` 附加 map 改为 App `A0F(msys/verify)` 形态，移除 register 阶段不应携带的 `hasav/reason/device_ram/db/recaptcha/education_screen_displayed/prefer_sms_over_flash/feo2_query_status`。
 - `nativePhoneProfile` 增加 profile 级 `pid`，旧 profile 缺失时使用 App capture 中同形态的默认 PID。
 - `/v2/code` map 补 `pid`，避免字段集少于 App capture。
+- `/v2/code`、`/v2/register` 继续沿用 profile 生成出的运营商上下文；无运营商信息时按 APK `C253119h.A00(null)` / `A0H` 行为发送 `mcc/mnc/sim_mcc/sim_mnc=000`，不省略四个运营商字段。
 - `/v2/exist` map 补 `pid`。
 - 运行态 `/v2/exist`、`/v2/code` 自动注入 `gpia/_gi/_gg/_gp/_ga/aid`：`gpia/_gi/_gg` fresh，`_gp/_ga/aid` profile-stable，长度和编码对齐 App capture。
 - 默认 App version / User-Agent 升级到 `2.26.22.78`；加载旧 native profile 时只刷新 UA 版本，保留设备型号、Android 版本和稳定 profile 材料。
@@ -39,3 +40,18 @@
 APK 的冷却是按通道生效：真实可见 fallback 先从 `pref_reg_methods_order`（默认 `flash,sms,voice`）删除 wait 缺失或 `-1` 的 method，再与 `fallback_methods` 求交集，并叠加本地 eligibility/capability。`too_recent` 只代表当前请求或当前通道太频繁，不能直接把所有协议 taxonomy 都展示为可尝试通道；只有 blocked、号码格式异常或协议级拒绝才应全局停止。
 
 对当前 +86 样本，应按 APK UI 语义理解为 `visible_methods=[flash,sms]`：`flash` 是 Android 设备侧未接来电验证，本服务不作为普通服务端直发通道；`sms` 可见但处于 cooldown，需要置灰并显示倒计时。
+
+## 本轮继续对齐
+
+- 回滚固定整机画像但保留 APK 无运营商默认语义：最新 App 注册需要保持 profile 级设备/PID/RAM 自洽；运营商缺失时 `mcc/mnc/sim_mcc/sim_mnc` 仍按 APK 发送 `000`。
+- 号码检测返回 `sms_available=true` 但 WA 未返回显式 `fallback_methods` 时，检测结果会合成 SMS method status，避免前端只因 method_statuses 为空显示无可用通道。
+- `StartRegistration` 增加脱敏 `/v2/code` 结果日志，只输出 phone hash、route、method、status/reason、retry_after 和 method_status_count，不输出 token、OTP、ENC、key bundle 或请求正文。
+- `/v2/code`/`/v2/exist` HTTP envelope 保留最新 APK `RetryingHttpClient` 的 `H` 表单键；本地运行态用随机 native state 绑定的软件 KeyStore 等价层生成 `H=SHA256withECDSA(ENC=...)` 与 `Authorization` 证书链，运行日志仍不输出 ENC/H/Authorization。
+- `/v2/code` 补最新 APK `KotlinRegistrationBridge.A06 -> A0P` 的 `advertising_id` 标量；非 EU profile 生成稳定 UUID，避免和真实 App 可用 GAID 的请求形态继续偏离。
+- `/v2/exist`/`/v2/code` 的 `feo2_query_status` 默认值对齐最新 APK shared-pref 读取默认值 `did_not_query`；加载旧 profile 时把旧的 `error_security_exception` 视为 stale 运行态结果并刷新为默认值。
+- `/v2/code`/`/v2/exist` HTTP transport 对齐最新 APK 静态形态：不再由 Go transport 显式发送 `Connection: close`，也不手动补 `Connection: Keep-Alive`；保留 `WaMsysRequest`，不再发送旧抓包残留的 `request_token` header。
+- `/v2/code`/`/v2/exist` 的 `db` 不再固定成 hook/emulator capture 里的 `1`；最新 APK 该字段来自 `Settings.Global["adb_enabled"]`，默认指纹按普通手机发送 `0`。`+84` 号码的 transient profile 增加 VN 运营商 MCC/MNC 候选，避免继续落到无 SIM `000/000` 形态。
+- 运行态改为纯本地 WAMSYS material provider：`gpia/_gi/_gg/_gp/_ga/aid` 不再依赖 Android oracle；字段长度、Base64/JSON 形态与 APK capture 对齐，并保持运行日志不输出 opaque blob。
+- 最新 APK 对 `/v2/exist` / same-device check 的 `no_routes` 仍会继续解析 wait 与 fallback 元数据；wa-app 只把 blocked、号码异常、协议错误和冷却作为预检终局。SMS 直发是否真正可用由后续 `/v2/code` 决定，避免在预检阶段误报“暂无可用验证通道”。
+- 显式选择 SMS fallback 时，APK 会把 `pref_prefer_sms_over_flash=true` 写入请求 map；wa-app 对直发 SMS 同步发送 `prefer_sms_over_flash=true`，避免服务端继续按 flash 优先分流。
+- 点击前端 SMS 通道后进入的是 `/v2/code`；最新 APK 的常规 request-code map 携带 `sim_type/airplane_mode_type/cellular_strength/roaming_type`，并携带 `mistyped=7`、`hasav=2`；wa-app 移除旧材料里的 flash permission 伪字段，按当前 APK 字段集发送。

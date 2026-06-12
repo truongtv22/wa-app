@@ -388,13 +388,12 @@ def post_once(state: ProbeState, kind: str, proxy: str, timeout: float) -> dict[
     url = EXIST_URL if kind == "exist" else CODE_URL
     plain, keys = build_plain(state, kind)
     enc = encrypt_wasafe(plain)
-    body = "ENC=" + enc
+    body = "ENC=" + enc + "&H="
     headers = {
         "Content-Type": "application/x-www-form-urlencoded",
         "User-Agent": USER_AGENT,
         "WaMsysRequest": "1",
         "X-Forwarded-Host": "v.whatsapp.net",
-        "request_token": str(uuid.uuid4()).upper(),
     }
     proxies = {"http": proxy, "https": proxy} if proxy else None
     response = requests.post(url, headers=headers, data=body, proxies=proxies, timeout=timeout, verify=False)
