@@ -8,7 +8,7 @@ import (
 	"crypto/ecdh"
 	"crypto/rand"
 	"crypto/sha256"
-	"crypto/tls"
+	stdtls "crypto/tls"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -19,6 +19,7 @@ import (
 	"strings"
 	"time"
 
+	utls "github.com/refraction-networking/utls"
 	xproxy "golang.org/x/net/proxy"
 )
 
@@ -36,28 +37,38 @@ func (c *nativeHTTPClient) CloseIdleConnections() {
 }
 
 func newNativeHTTPClient(proxy string) (*nativeHTTPClient, error) {
-	transport := &http.Transport{ForceAttemptHTTP2: false, TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
+	dialer := &net.Dialer{Timeout: 20 * time.Second, KeepAlive: 20 * time.Second}
+	transport := &http.Transport{
+		ForceAttemptHTTP2: false,
+		TLSClientConfig:   &stdtls.Config{InsecureSkipVerify: true},
+		DialContext:       dialer.DialContext,
+		DialTLSContext:    nativeAndroidDialTLSContext(dialer.DialContext),
+	}
 	if proxy != "" {
 		parsed, err := parseOutboundProxyURL(proxy)
 		if err != nil {
 			return nil, err
 		}
-		if err := configureNativeHTTPProxy(transport, parsed); err != nil {
+		if err := configureNativeHTTPProxy(transport, parsed, dialer); err != nil {
 			return nil, err
 		}
 	}
 	return &nativeHTTPClient{client: &http.Client{Timeout: 20 * time.Second, Transport: transport}}, nil
 }
 
-func configureNativeHTTPProxy(transport *http.Transport, parsed *url.URL) error {
+func configureNativeHTTPProxy(transport *http.Transport, parsed *url.URL, dialer *net.Dialer) error {
 	if transport == nil || parsed == nil {
 		return nil
+	}
+	if dialer == nil {
+		dialer = &net.Dialer{Timeout: 20 * time.Second, KeepAlive: 20 * time.Second}
 	}
 	switch {
 	case parsed.Scheme == "http" || parsed.Scheme == "https":
 		transport.Proxy = http.ProxyURL(parsed)
+		transport.DialContext = dialer.DialContext
+		transport.DialTLSContext = nil
 	case strings.HasPrefix(parsed.Scheme, "socks5"):
-		dialer := &net.Dialer{Timeout: 20 * time.Second, KeepAlive: 20 * time.Second}
 		var auth *xproxy.Auth
 		if parsed.User != nil {
 			password, _ := parsed.User.Password()
@@ -72,10 +83,34 @@ func configureNativeHTTPProxy(transport *http.Transport, parsed *url.URL) error 
 			return fmt.Errorf("SOCKS5 proxy dialer does not support context")
 		}
 		transport.DialContext = contextDialer.DialContext
+		transport.DialTLSContext = nativeAndroidDialTLSContext(contextDialer.DialContext)
 	default:
 		return fmt.Errorf("unsupported HTTP proxy scheme")
 	}
 	return nil
+}
+
+func nativeAndroidDialTLSContext(dialContext func(context.Context, string, string) (net.Conn, error)) func(context.Context, string, string) (net.Conn, error) {
+	return func(ctx context.Context, network string, addr string) (net.Conn, error) {
+		if dialContext == nil {
+			return nil, fmt.Errorf("native TLS dialer is not configured")
+		}
+		rawConn, err := dialContext(ctx, network, addr)
+		if err != nil {
+			return nil, err
+		}
+		host, _, err := net.SplitHostPort(addr)
+		if err != nil {
+			_ = rawConn.Close()
+			return nil, err
+		}
+		tlsConn := utls.UClient(rawConn, &utls.Config{ServerName: host, InsecureSkipVerify: true}, utls.HelloAndroid_11_OkHttp)
+		if err := tlsConn.HandshakeContext(ctx); err != nil {
+			_ = rawConn.Close()
+			return nil, err
+		}
+		return tlsConn, nil
+	}
 }
 
 func (c *nativeHTTPClient) postWASafe(ctx context.Context, endpoint string, plain string, userAgent string, attestation nativeSoftwareAttestation) (map[string]any, string, error) {
