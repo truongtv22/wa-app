@@ -148,14 +148,19 @@ func applyNativeRawParamMap(params map[string]string, raw map[string]struct{}, v
 func codeDeviceMap(method string, state nativeState) map[string]string {
 	fields := nativeDeviceMapFields(state)
 	out := map[string]string{
-		"mistyped":                   "7",
 		"reason":                     "",
-		"hasav":                      "2",
 		"client_metrics":             nativeCodeClientMetrics(),
+		"clicked_education_link":     "false",
+		"manage_call_permission":     "false",
+		"call_log_permission":        "false",
 		"education_screen_displayed": "false",
 		"prefer_sms_over_flash":      nativePreferSMSOverFlash(method),
 		"_ge":                        `{"sb":false,"sv":false}`,
 		"network_radio_type":         fields["network_radio_type"],
+		"sim_type":                   fields["sim_type"],
+		"airplane_mode_type":         fields["airplane_mode_type"],
+		"cellular_strength":          fields["cellular_strength"],
+		"roaming_type":               fields["roaming_type"],
 		"simnum":                     fields["simnum"],
 		"hasinrc":                    fields["hasinrc"],
 		"pid":                        fields["pid"],
@@ -169,6 +174,8 @@ func codeDeviceMap(method string, state nativeState) map[string]string {
 		"sim_mcc":                    fields["sim_mcc"],
 		"sim_mnc":                    fields["sim_mnc"],
 	}
+	addNonEmptyNativeCodeField(out, fields, "mistyped")
+	addNonEmptyNativeCodeField(out, fields, "hasav")
 	return out
 }
 
@@ -177,6 +184,12 @@ func nativePreferSMSOverFlash(method string) string {
 		return "true"
 	}
 	return "false"
+}
+
+func addNonEmptyNativeCodeField(out map[string]string, fields map[string]string, key string) {
+	if value := strings.TrimSpace(fields[key]); value != "" {
+		out[key] = value
+	}
 }
 
 func registerDeviceMap(method string, state nativeState) map[string]string {
@@ -225,6 +238,10 @@ const (
 func nativeDefaultDeviceMapFields() map[string]string {
 	return map[string]string{
 		"network_radio_type":    "1",
+		"sim_type":              "1",
+		"airplane_mode_type":    "0",
+		"cellular_strength":     "5",
+		"roaming_type":          "0",
 		"pid":                   "29418",
 		"simnum":                "0",
 		"hasinrc":               "1",
