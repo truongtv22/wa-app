@@ -12,7 +12,7 @@ import (
 func readJSONPayload(w http.ResponseWriter, r *http.Request) (map[string]any, bool) {
 	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 1<<20))
 	if err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		writeDashboardError(w, r, http.StatusBadRequest, "common.invalid_request_body", "请求体无效")
 		return nil, false
 	}
 	payload := map[string]any{}
@@ -20,7 +20,7 @@ func readJSONPayload(w http.ResponseWriter, r *http.Request) (map[string]any, bo
 		return payload, true
 	}
 	if err := json.Unmarshal(body, &payload); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "request body must be json"})
+		writeDashboardError(w, r, http.StatusBadRequest, "common.request_body_must_be_json", "请求体必须是 JSON")
 		return nil, false
 	}
 	return payload, true

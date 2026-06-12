@@ -1,5 +1,6 @@
 import { LongConnectionStatus, type LongConnectionState } from '../proto/byte/v/forge/waapp/v1/messaging';
 import { Badge } from '@/components/ui/badge';
+import { i18n } from '@/i18n/i18n';
 
 export function WaConnectionDot({ connection, loading = false, className = '' }: { connection?: LongConnectionState; loading?: boolean; className?: string }) {
   const view = connectionView(connection?.status, loading);
@@ -7,9 +8,9 @@ export function WaConnectionDot({ connection, loading = false, className = '' }:
 }
 
 export function connectionView(status: LongConnectionStatus | undefined, loading: boolean) {
-  if (loading && !status) return { label: '连接状态加载中', className: 'bg-slate-300' };
-  if (status === LongConnectionStatus.LONG_CONNECTION_STATUS_CONNECTED || status === LongConnectionStatus.LONG_CONNECTION_STATUS_HEARTBEAT_WAITING) return { label: '已连接', className: 'bg-emerald-500' };
-  if (status === LongConnectionStatus.LONG_CONNECTION_STATUS_RECONNECTING || status === LongConnectionStatus.LONG_CONNECTION_STATUS_STARTING) return { label: '连接中', className: 'bg-amber-500' };
-  if (status === LongConnectionStatus.LONG_CONNECTION_STATUS_FAILED) return { label: '连接失败', className: 'bg-destructive' };
-  return { label: '未连接', className: 'bg-slate-300' };
+  if (loading && !status) return { label: i18n.t('connection.loading', '连接状态加载中'), className: 'bg-slate-300' };
+  if (status === LongConnectionStatus.LONG_CONNECTION_STATUS_CONNECTED || status === LongConnectionStatus.LONG_CONNECTION_STATUS_HEARTBEAT_WAITING) return { label: i18n.t('connection.connected', '已连接'), className: 'bg-emerald-500' };
+  if (status === LongConnectionStatus.LONG_CONNECTION_STATUS_RECONNECTING || status === LongConnectionStatus.LONG_CONNECTION_STATUS_STARTING) return { label: i18n.t('connection.connecting', '连接中'), className: 'bg-amber-500' };
+  if (status === LongConnectionStatus.LONG_CONNECTION_STATUS_FAILED) return { label: i18n.t('connection.failed', '连接失败'), className: 'bg-destructive' };
+  return { label: i18n.t('connection.disconnected', '未连接'), className: 'bg-slate-300' };
 }

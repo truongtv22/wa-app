@@ -45,7 +45,7 @@ func withOptionalDashboardAuth(next http.Handler, auth dashboardAuthConfig) http
 func rejectDashboardAuth(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 	if wantsDashboardJSON(r) {
-		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "authentication required"})
+		writeDashboardError(w, r, http.StatusUnauthorized, "common.authentication_required", "需要认证")
 		return
 	}
 	http.Redirect(w, r, "/login?next="+url.QueryEscape(dashboardNextFromRequest(r)), http.StatusSeeOther)

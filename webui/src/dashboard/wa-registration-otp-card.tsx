@@ -3,6 +3,7 @@ import { CheckCircle2, KeyRound } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardTitle } from '@/components/ui/card';
 import { InputOTP, InputOTPGroup, InputOTPSeparator, InputOTPSlot } from '@/components/ui/input-otp';
+import { useI18n } from '@/i18n/i18n';
 
 type Props = {
   value: string;
@@ -12,6 +13,7 @@ type Props = {
 };
 
 export function WaRegistrationOtpCard({ value, busy, onChange, onSubmit }: Props) {
+  const { t } = useI18n();
   return (
     <Card className="border-dashed">
       <CardContent className="grid gap-2 p-3">
@@ -32,7 +34,7 @@ export function WaRegistrationOtpCard({ value, busy, onChange, onSubmit }: Props
               <InputOTPSlot index={7} />
             </InputOTPGroup>
           </InputOTP>
-          <Button type="button" size="icon" disabled={busy || !value.trim()} title="提交 OTP" aria-label="提交 OTP" onClick={onSubmit}><CheckCircle2 size={14} /></Button>
+          <Button type="button" size="icon" disabled={busy || !value.trim()} title={t('registration.otp.submit', '提交 OTP')} aria-label={t('registration.otp.submit', '提交 OTP')} onClick={onSubmit}><CheckCircle2 size={14} /></Button>
         </div>
       </CardContent>
     </Card>

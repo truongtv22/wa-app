@@ -1,4 +1,5 @@
 import type { WaWorkflowResponse } from './wa-api';
+import { i18n } from '@/i18n/i18n';
 import { accountFlowLabel, accountReasonLabel, accountStatusLabel, methodLabel, methodLabels } from './wa-result-labels';
 import { compactJoin, extraValues, firstBool, firstNumber, firstText, record, statusIn } from './wa-result-normalize';
 export type BadgeVariant = 'default' | 'secondary' | 'destructive' | 'outline';
@@ -58,32 +59,32 @@ export function waProbeStatus(result?: WaWorkflowResponse | null): WaProbeStatus
   };
 }
 export function outcomeMeta(status: WaProbeStatus, result?: WaWorkflowResponse | null, loading?: boolean): { label: string; variant: BadgeVariant } {
-  if (loading) return { label: '执行中', variant: 'secondary' };
-  if (!result) return { label: '等待', variant: 'outline' };
-  if (status.blocked === true) return { label: '已封禁', variant: 'destructive' };
-  if (status.accountFlow === 'invalid_number') return { label: '号码异常', variant: 'secondary' };
-  if (status.accountFlow === 'rate_limited') return { label: '限流', variant: 'secondary' };
-  if (status.requestFailed) return { label: '请求失败', variant: 'destructive' };
-  if (status.registered === true || status.accountFlow === 'registered') return { label: '旧设备可用', variant: 'secondary' };
-  if (status.smsAvailable === true) return { label: 'SMS 可发', variant: 'default' };
-  if (status.smsAvailable === false) return { label: 'SMS 不可发', variant: 'secondary' };
-  if (status.accountFlow === 'not_registered') return { label: '旧设备未知', variant: 'secondary' };
-  return { label: '完成', variant: 'secondary' };
+  if (loading) return { label: i18n.t('result.running', '执行中'), variant: 'secondary' };
+  if (!result) return { label: i18n.t('result.waiting', '等待'), variant: 'outline' };
+  if (status.blocked === true) return { label: i18n.t('result.blocked', '已封禁'), variant: 'destructive' };
+  if (status.accountFlow === 'invalid_number') return { label: i18n.t('result.number_issue', '号码异常'), variant: 'secondary' };
+  if (status.accountFlow === 'rate_limited') return { label: i18n.t('result.rate_limited', '限流'), variant: 'secondary' };
+  if (status.requestFailed) return { label: i18n.t('result.request_failed', '请求失败'), variant: 'destructive' };
+  if (status.registered === true || status.accountFlow === 'registered') return { label: i18n.t('result.old_device_available', '旧设备可用'), variant: 'secondary' };
+  if (status.smsAvailable === true) return { label: i18n.t('result.sms_available', 'SMS 可发'), variant: 'default' };
+  if (status.smsAvailable === false) return { label: i18n.t('result.sms_unavailable', 'SMS 不可发'), variant: 'secondary' };
+  if (status.accountFlow === 'not_registered') return { label: i18n.t('result.old_device_unknown', '旧设备未知'), variant: 'secondary' };
+  return { label: i18n.t('result.completed', '完成'), variant: 'secondary' };
 }
 export function metaItems(status: WaProbeStatus, result?: WaWorkflowResponse | null, showSmsExtra = true): MetaItem[] {
   const entries: MetaItem[] = [];
   if (status.requestFailed) {
-    addItem(entries, '账号状态', accountStatusLabel(status.accountStatus || status.accountRawStatus), 'bad');
-    addItem(entries, '处理阶段', accountFlowLabel(status.accountFlow), 'bad');
-    addItem(entries, 'WA 反馈', accountReasonLabel(status.accountRawReason, status.accountError, status.rejectReason, result?.error_message), 'bad');
-    addItem(entries, '失败说明', accountReasonLabel(status.accountError, status.rejectReason, result?.error_message || result?.status), 'bad');
-    addItem(entries, '代理', status.proxyText);
+    addItem(entries, i18n.t('result.meta.account_status', '账号状态'), accountStatusLabel(status.accountStatus || status.accountRawStatus), 'bad');
+    addItem(entries, i18n.t('result.meta.stage', '处理阶段'), accountFlowLabel(status.accountFlow), 'bad');
+    addItem(entries, i18n.t('result.meta.wa_feedback', 'WA 反馈'), accountReasonLabel(status.accountRawReason, status.accountError, status.rejectReason, result?.error_message), 'bad');
+    addItem(entries, i18n.t('result.meta.failure_reason', '失败说明'), accountReasonLabel(status.accountError, status.rejectReason, result?.error_message || result?.status), 'bad');
+    addItem(entries, i18n.t('result.meta.proxy', '代理'), status.proxyText);
     return entries;
   }
   const account = accountFeedback(status);
-  addItem(entries, '账号反馈', account, account ? 'warn' : 'idle');
-  if (showSmsExtra) addItem(entries, 'SMS补充', smsExtra(status));
-  addItem(entries, '代理', status.proxyText);
+  addItem(entries, i18n.t('result.meta.account_feedback', '账号反馈'), account, account ? 'warn' : 'idle');
+  if (showSmsExtra) addItem(entries, i18n.t('result.meta.sms_extra', 'SMS补充'), smsExtra(status));
+  addItem(entries, i18n.t('result.meta.proxy', '代理'), status.proxyText);
   return entries;
 }
 function accountFeedback(status: WaProbeStatus) {
@@ -108,7 +109,7 @@ function requestFailure(...values: unknown[]) {
   return normalized.startsWith('account probe rejected') || normalized.startsWith('account probe request') || normalized.includes('network') || normalized.includes('unreachable') || normalized.includes('dynamic ip') || normalized.includes('proxy') || normalized.includes(' eof') || normalized.includes('invalid_skey') || normalized.includes('bad_token') || normalized.includes('missing_param') || normalized.includes('bad_param');
 }
 function smsExtra(status: WaProbeStatus) {
-  if (status.smsWaitUntil) return `冷却到 ${status.smsWaitUntil}`;
+  if (status.smsWaitUntil) return `${i18n.t('result.meta.cooldown_until', '冷却到')} ${status.smsWaitUntil}`;
   return extraValues(status.smsStatus).join(' / ');
 }
 function verificationMethodStatuses(...values: unknown[]) {
@@ -169,7 +170,7 @@ function deriveAccountFlow(input: { registered?: boolean; blocked?: boolean; sms
 export function waProbeCanStartRegistration(result?: WaWorkflowResponse | null, method = 'VERIFICATION_DELIVERY_METHOD_SMS', elapsedSeconds = 0) {
   const status = waProbeStatus(result);
   const selectedMethod = methodLabel(method);
-  if (!['SMS', '语音', '旧设备', '邮箱', '发送 SMS 至 WA'].includes(selectedMethod)) return false;
+  if (!['SMS', i18n.t('status.method.voice', '语音'), i18n.t('status.method.old_device', '旧设备'), i18n.t('status.method.email', '邮箱'), i18n.t('status.method.send_sms_to_wa', '发送 SMS 至 WA')].includes(selectedMethod)) return false;
   const methodAvailable = status.methodStatuses.some((item) => item.label === selectedMethod && (item.available === true || cooldownExpired(item.cooldownSeconds, elapsedSeconds)) && !cooldownActive(item.cooldownSeconds, elapsedSeconds));
   return Boolean(result)
     && !status.requestFailed

@@ -12,24 +12,26 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty';
 import { Input } from '@/components/ui/input';
+import { i18n, useI18n } from '@/i18n/i18n';
 
 export function WaContactList({ accountID, contacts, selectedID, loading, error, deletingID, onOpenContact, onDeleteContact }: { accountID: string; contacts: WaContact[]; selectedID: string; loading: boolean; error?: string; deletingID?: string; onOpenContact: (contactID: string) => void; onDeleteContact: (contactID: string) => void }) {
+  const { t } = useI18n();
   const [query, setQuery] = useState('');
   const visibleContacts = useMemo(() => filterContacts(contacts, query), [contacts, query]);
   const unreadCount = contacts.reduce((sum, contact) => sum + contact.unreadCount, 0);
   return (
     <aside className="grid min-h-0 grid-rows-[auto_auto_1fr] overflow-hidden border-r border-border bg-card">
       <header className="flex h-16 items-center justify-between px-4">
-        <div><h2 className="text-base font-semibold">联系人</h2><p className="text-xs text-muted-foreground">{contacts.length} 个会话{unreadCount > 0 ? ` · ${unreadCount} 条未读` : ''}</p></div>
+        <div><h2 className="text-base font-semibold">{t('contact.list.title', '联系人')}</h2><p className="text-xs text-muted-foreground">{contacts.length} {t('contact.list.sessions', '个会话')}{unreadCount > 0 ? ` · ${unreadCount} ${t('contact.list.unread_suffix', '条未读')}` : ''}</p></div>
         {loading && <Loader2 className="size-4 animate-spin text-muted-foreground" />}
       </header>
       <div className="px-3 pb-3">
-        <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索联系人" aria-label="搜索联系人" />
+        <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t('contact.list.search_placeholder', '搜索联系人')} aria-label={t('contact.list.search_aria', '搜索联系人')} />
       </div>
       <div className="min-h-0 overflow-y-auto p-2">
         {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
-        {!loading && !error && contacts.length === 0 && <ContactEmpty title="暂无联系人" description="收到消息后会显示在这里。" />}
-        {!loading && !error && contacts.length > 0 && visibleContacts.length === 0 && <ContactEmpty title="没有匹配联系人" description="换个关键词再试。" />}
+        {!loading && !error && contacts.length === 0 && <ContactEmpty title={t('contact.list.empty_title', '暂无联系人')} description={t('contact.list.empty_description', '收到消息后会显示在这里。')} />}
+        {!loading && !error && contacts.length > 0 && visibleContacts.length === 0 && <ContactEmpty title={t('contact.list.empty_search_title', '没有匹配联系人')} description={t('contact.list.empty_search_description', '换个关键词再试。')} />}
         {visibleContacts.map((contact) => <ContactRow key={contact.id} accountID={accountID} contact={contact} selected={contact.id === selectedID} deleting={deletingID === contact.id} onOpenContact={onOpenContact} onDeleteContact={onDeleteContact} />)}
       </div>
     </aside>
@@ -41,6 +43,7 @@ function ContactEmpty({ title, description }: { title: string; description: stri
 }
 
 function ContactRow({ accountID, contact, selected, deleting, onOpenContact, onDeleteContact }: { accountID: string; contact: WaContact; selected: boolean; deleting: boolean; onOpenContact: (contactID: string) => void; onDeleteContact: (contactID: string) => void }) {
+  const { t } = useI18n();
   const unread = contact.unreadCount > 0;
   const holdTimer = useRef<number | undefined>(undefined);
   const revealedByHold = useRef(false);
@@ -64,7 +67,7 @@ function ContactRow({ accountID, contact, selected, deleting, onOpenContact, onD
   };
   return (
     <div className={`mb-1 grid grid-cols-[1fr_auto] items-center rounded-2xl transition hover:bg-muted/60 ${selected ? 'bg-primary/10' : unread ? 'bg-emerald-50/70' : ''}`} onContextMenu={(event) => { event.preventDefault(); revealDelete(false); }}>
-      <NavLink className="grid min-w-0 grid-cols-[42px_1fr_auto] items-center gap-3 px-3 py-2 text-left" to={waContactPath(accountID, contact.id)} title="长按显示删除" onClick={openOrReveal} onPointerDown={startHold} onPointerLeave={clearHold} onPointerCancel={clearHold} onPointerUp={clearHold}>
+      <NavLink className="grid min-w-0 grid-cols-[42px_1fr_auto] items-center gap-3 px-3 py-2 text-left" to={waContactPath(accountID, contact.id)} title={t('contact.list.hold_to_delete', '长按显示删除')} onClick={openOrReveal} onPointerDown={startHold} onPointerLeave={clearHold} onPointerCancel={clearHold} onPointerUp={clearHold}>
         <WaContactAvatar contact={contact} />
         <span className="min-w-0 space-y-0.5">
           <span className="flex min-w-0 items-center gap-2">
@@ -79,7 +82,7 @@ function ContactRow({ accountID, contact, selected, deleting, onOpenContact, onD
           {unread && <Badge variant="default">{contact.unreadCount}</Badge>}
         </span>
       </NavLink>
-      {deleteVisible && <Button className="mr-2 rounded-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive" variant="ghost" size="icon" type="button" title="删除联系人" aria-label="删除联系人" disabled={deleting} onClick={() => onDeleteContact(contact.id)}>{deleting ? <Loader2 className="size-4 animate-spin" /> : <Trash2 size={14} />}</Button>}
+      {deleteVisible && <Button className="mr-2 rounded-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive" variant="ghost" size="icon" type="button" title={t('contact.list.delete', '删除联系人')} aria-label={t('contact.list.delete', '删除联系人')} disabled={deleting} onClick={() => onDeleteContact(contact.id)}>{deleting ? <Loader2 className="size-4 animate-spin" /> : <Trash2 size={14} />}</Button>}
     </div>
   );
 }
@@ -97,9 +100,9 @@ function filterContacts(contacts: WaContact[], query: string) {
 }
 
 function kindLabel(kind: WAContactKind) {
-  if (kind === WAContactKind.WA_CONTACT_KIND_GROUP) return '群';
-  if (kind === WAContactKind.WA_CONTACT_KIND_BUSINESS) return '企';
-  if (kind === WAContactKind.WA_CONTACT_KIND_SYSTEM) return '系统';
-  if (kind === WAContactKind.WA_CONTACT_KIND_INTEROP) return '互通';
+  if (kind === WAContactKind.WA_CONTACT_KIND_GROUP) return i18n.t('contact.kind.group', '群');
+  if (kind === WAContactKind.WA_CONTACT_KIND_BUSINESS) return i18n.t('contact.kind.business', '企');
+  if (kind === WAContactKind.WA_CONTACT_KIND_SYSTEM) return i18n.t('contact.kind.system', '系统');
+  if (kind === WAContactKind.WA_CONTACT_KIND_INTEROP) return i18n.t('contact.kind.interop', '互通');
   return '';
 }

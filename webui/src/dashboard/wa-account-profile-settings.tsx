@@ -8,6 +8,7 @@ import { WhatsAppIcon } from './wa-brand-icon';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { i18n, useI18n } from '@/i18n/i18n';
 
 const maxProfilePictureBytes = 2 * 1024 * 1024;
 
@@ -20,6 +21,7 @@ type Props = {
 };
 
 export function WaAccountProfileSettings({ account, onDone, onError, onAccountChanged, onAvatarChanged }: Props) {
+  const { t } = useI18n();
   const savedName = (account.display_name || '').trim();
   const [currentName, setCurrentName] = useState(savedName);
   const [displayName, setDisplayName] = useState(savedName);
@@ -38,8 +40,8 @@ export function WaAccountProfileSettings({ account, onDone, onError, onAccountCh
   const nameMutation = useMutation({
     mutationFn: () => {
       const name = displayName.trim();
-      if (!name) throw new Error('账号名称不能为空');
-      if ([...name].length > 25) throw new Error('账号名称不能超过 25 个字符');
+      if (!name) throw new Error(t('account.profile.error.empty_name', '账号名称不能为空'));
+      if ([...name].length > 25) throw new Error(t('account.profile.error.name_too_long', '账号名称不能超过 25 个字符'));
       return setWaAccountProfileName(account, name);
     },
     onSuccess: () => {
@@ -48,13 +50,13 @@ export function WaAccountProfileSettings({ account, onDone, onError, onAccountCh
       setDisplayName(nextName);
       setNameEditing(false);
       onAccountChanged();
-      onDone(currentName ? '名称已修改' : '名称已设置');
+      onDone(currentName ? t('account.profile.success.name_updated', '名称已修改') : t('account.profile.success.name_set', '名称已设置'));
     },
     onError: handleError,
   });
   const pictureMutation = useMutation({
     mutationFn: async ({ dataURL, file }: { dataURL: string; file: File }) => {
-      if (file.size > maxProfilePictureBytes) throw new Error('头像图片不能超过 2 MiB');
+      if (file.size > maxProfilePictureBytes) throw new Error(t('account.profile.error.avatar_too_large', '头像图片不能超过 2 MiB'));
       const response = await setWaAccountProfilePicture(account, { image_base64: dataURLBase64(dataURL), content_type: 'image/jpeg' });
       return { dataURL, response };
     },
@@ -64,7 +66,7 @@ export function WaAccountProfileSettings({ account, onDone, onError, onAccountCh
       setRemoteFailed(false);
       resetPictureSelection();
       onAvatarChanged();
-      onDone(response.profile_picture_id ? '头像已提交' : '头像请求已提交');
+      onDone(response.profile_picture_id ? t('account.profile.success.avatar_submitted', '头像已提交') : t('account.profile.success.avatar_request_submitted', '头像请求已提交'));
     },
     onError: (error) => { resetPictureSelection(); handleError(error); },
   });
@@ -74,7 +76,7 @@ export function WaAccountProfileSettings({ account, onDone, onError, onAccountCh
   const name = displayName.trim();
   const nameBusy = nameMutation.isPending;
   const nameChanged = name !== currentName;
-  const nameAction = currentName ? '修改名称' : '设置名称';
+  const nameAction = currentName ? t('account.profile.action.edit_name', '修改名称') : t('account.profile.action.set_name', '设置名称');
   useEffect(() => {
     setCurrentName(savedName);
     setDisplayName(savedName);
@@ -88,19 +90,19 @@ export function WaAccountProfileSettings({ account, onDone, onError, onAccountCh
   return (
     <section className="grid gap-3">
       <div className="flex items-center gap-3">
-        <Button className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full bg-muted/60 p-0 hover:bg-muted disabled:cursor-not-allowed disabled:opacity-70" variant="ghost" type="button" disabled={pictureBusy} title="更换头像" aria-label="更换头像" onClick={() => { if (fileInput.current) fileInput.current.value = ''; fileInput.current?.click(); }}>
+        <Button className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full bg-muted/60 p-0 hover:bg-muted disabled:cursor-not-allowed disabled:opacity-70" variant="ghost" type="button" disabled={pictureBusy} title={t('account.profile.action.change_avatar', '更换头像')} aria-label={t('account.profile.action.change_avatar', '更换头像')} onClick={() => { if (fileInput.current) fileInput.current.value = ''; fileInput.current?.click(); }}>
           {picture ? <AvatarPreview editor={editor} image={picture} onReady={(dataURL) => pictureMutation.mutate({ dataURL, file: picture })} onError={(message) => { resetPictureSelection(); onError(message); }} /> : <StoredAvatar src={activePicture || remoteAvatar} onError={() => setRemoteFailed(true)} />}
           {pictureBusy ? <span className="absolute inset-0 grid place-items-center bg-background/70"><Loader2 className="size-4 animate-spin" /></span> : null}
         </Button>
         {currentName && !nameEditing ? (
           <div className="flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-border px-3 py-2">
-            <div className="min-w-0 flex-1"><p className="text-xs text-muted-foreground">名称</p><p className="truncate text-sm font-medium">{currentName}</p></div>
-            <Button size="icon" variant="ghost" type="button" title="修改名称" aria-label="修改名称" onClick={() => { setDisplayName(currentName); setNameEditing(true); }}><Pencil size={16} /></Button>
+            <div className="min-w-0 flex-1"><p className="text-xs text-muted-foreground">{t('account.profile.label.name', '名称')}</p><p className="truncate text-sm font-medium">{currentName}</p></div>
+            <Button size="icon" variant="ghost" type="button" title={t('account.profile.action.edit_name', '修改名称')} aria-label={t('account.profile.action.edit_name', '修改名称')} onClick={() => { setDisplayName(currentName); setNameEditing(true); }}><Pencil size={16} /></Button>
           </div>
         ) : (
           <form className="flex min-w-0 flex-1 items-center gap-2" onSubmit={(event) => submitName(event, () => nameMutation.mutate())}>
-            <Input className="min-w-0 flex-1" value={displayName} maxLength={25} placeholder="账号名称" aria-label="账号名称" disabled={nameBusy} onChange={(event) => setDisplayName(event.target.value)} />
-            {currentName ? <Button className="h-10 w-10 px-0" variant="ghost" type="button" disabled={nameBusy} title="取消修改" aria-label="取消修改" onClick={() => { setDisplayName(currentName); setNameEditing(false); }}><X size={16} /></Button> : null}
+            <Input className="min-w-0 flex-1" value={displayName} maxLength={25} placeholder={t('account.profile.placeholder.name', '账号名称')} aria-label={t('account.profile.placeholder.name', '账号名称')} disabled={nameBusy} onChange={(event) => setDisplayName(event.target.value)} />
+            {currentName ? <Button className="h-10 w-10 px-0" variant="ghost" type="button" disabled={nameBusy} title={t('account.profile.action.cancel_edit', '取消修改')} aria-label={t('account.profile.action.cancel_edit', '取消修改')} onClick={() => { setDisplayName(currentName); setNameEditing(false); }}><X size={16} /></Button> : null}
             <Button className="h-10 w-10 px-0" type="submit" disabled={nameBusy || !name || !nameChanged || [...name].length > 25} title={nameAction} aria-label={nameAction}>
               {nameBusy ? <Loader2 className="size-4 animate-spin" /> : <Check size={16} />}
             </Button>
@@ -118,9 +120,10 @@ function submitName(event: FormEvent<HTMLFormElement>, run: () => void) {
 }
 
 function StoredAvatar({ src, onError }: { src: string; onError: () => void }) {
+  const { t } = useI18n();
   return (
     <Avatar className="size-12">
-      {src ? <AvatarImage src={src} alt="当前头像" onError={onError} /> : null}
+      {src ? <AvatarImage src={src} alt={t('account.profile.alt.current_avatar', '当前头像')} onError={onError} /> : null}
       <AvatarFallback>
         <WhatsAppIcon className="size-7" />
       </AvatarFallback>
@@ -129,6 +132,7 @@ function StoredAvatar({ src, onError }: { src: string; onError: () => void }) {
 }
 
 function AvatarPreview({ editor, image, onReady, onError }: { editor: RefObject<AvatarEditorRef | null>; image: File; onReady: (dataURL: string) => void; onError: (message: string) => void }) {
+  const { t } = useI18n();
   return (
     <AvatarEditor
       ref={editor}
@@ -140,7 +144,7 @@ function AvatarPreview({ editor, image, onReady, onError }: { editor: RefObject<
       scale={1}
       backgroundColor="#ffffff"
       onLoadSuccess={() => onReady(avatarDataURL(editor.current))}
-      onLoadFailure={() => onError('头像图片加载失败')}
+      onLoadFailure={() => onError(t('account.profile.error.avatar_load_failed', '头像图片加载失败'))}
       style={{ width: '3rem', height: '3rem' }}
     />
   );
@@ -148,7 +152,7 @@ function AvatarPreview({ editor, image, onReady, onError }: { editor: RefObject<
 
 function setSelectedPicture(file: File | null, setPicture: (file: File | null) => void, onError: (message: string) => void) {
   if (file && file.size > maxProfilePictureBytes) {
-    onError('头像图片不能超过 2 MiB');
+    onError(i18n.t('account.profile.error.avatar_too_large', '头像图片不能超过 2 MiB'));
     return;
   }
   setPicture(file);
@@ -156,7 +160,7 @@ function setSelectedPicture(file: File | null, setPicture: (file: File | null) =
 
 function avatarDataURL(editor: AvatarEditorRef | null) {
   const dataURL = editor?.getImageScaledToCanvas().toDataURL('image/jpeg', 0.92);
-  if (!dataURL) throw new Error('头像图片编码失败');
+  if (!dataURL) throw new Error(i18n.t('account.profile.error.avatar_encode_failed', '头像图片编码失败'));
   return dataURL;
 }
 

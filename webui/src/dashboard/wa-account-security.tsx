@@ -21,10 +21,12 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Field, FieldGroup, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
+import { useI18n } from '@/i18n/i18n';
 
 type Props = { account: WaAccountProjection; onDone: (message: string) => void; onError: (message: string) => void };
 
 export function WaAccountSecurityPanel({ account, onDone, onError }: Props) {
+  const { t } = useI18n();
   const queryClient = useQueryClient();
   const [pin, setPin] = useState('');
   const [email, setEmail] = useState('');
@@ -59,15 +61,15 @@ export function WaAccountSecurityPanel({ account, onDone, onError }: Props) {
   });
   const pinConfigured = twoFactorConfigured(twoFactorStatus);
   const emailConfigured = twoFactorEmailConfigured(twoFactorStatus);
-  const pinAction = pinConfigured ? '修改 2FA PIN' : '设置 2FA PIN';
-  const emailAction = emailConfigured ? '修改账户邮箱' : '设置账户邮箱';
+  const pinAction = pinConfigured ? t('account.security.action.edit_pin', '修改 2FA PIN') : t('account.security.action.set_pin', '设置 2FA PIN');
+  const emailAction = emailConfigured ? t('account.security.action.edit_email', '修改账户邮箱') : t('account.security.action.set_email', '设置账户邮箱');
   const twoFactor = useMutation({
     mutationFn: () => setWaTwoFactorAuthSettings(account, pin),
     onSuccess: (resp) => {
       setPin('');
       setPinEditing(false);
       if (resp.operation?.status !== AccountSettingsOperationStatus.ACCOUNT_SETTINGS_OPERATION_STATUS_REJECTED) patchStatus({ configured: true });
-      handleSuccess(pinConfigured ? '2FA PIN 修改请求已提交' : '2FA PIN 设置请求已提交', resp.operation?.status);
+      handleSuccess(pinConfigured ? t('account.security.success.pin_updated', '2FA PIN 修改请求已提交') : t('account.security.success.pin_set', '2FA PIN 设置请求已提交'), resp.operation?.status);
     },
     onError: handleError,
   });
@@ -88,7 +90,7 @@ export function WaAccountSecurityPanel({ account, onDone, onError }: Props) {
       if (setStatus === AccountSettingsOperationStatus.ACCOUNT_SETTINGS_OPERATION_STATUS_VERIFIED) {
         setEmailOtp('');
       }
-      handleSuccess(emailConfigured ? '账户邮箱修改请求已提交' : '账户邮箱设置请求已提交', setStatus);
+      handleSuccess(emailConfigured ? t('account.security.success.email_updated', '账户邮箱修改请求已提交') : t('account.security.success.email_set', '账户邮箱设置请求已提交'), setStatus);
     },
     onError: handleError,
   });
@@ -96,7 +98,7 @@ export function WaAccountSecurityPanel({ account, onDone, onError }: Props) {
     mutationFn: () => requestWaAccountEmailOtp(account),
     onSuccess: (resp) => {
       setEmailOtpVisible(true);
-      handleSuccess('邮箱 OTP 已请求', resp.operation?.status);
+      handleSuccess(t('account.security.success.email_otp_requested', '邮箱 OTP 已请求'), resp.operation?.status);
     },
     onError: handleError,
   });
@@ -107,7 +109,7 @@ export function WaAccountSecurityPanel({ account, onDone, onError }: Props) {
       setEmailOtp('');
       setEmailOtpVisible(shouldShowEmailOtp(status));
       if (status === AccountSettingsOperationStatus.ACCOUNT_SETTINGS_OPERATION_STATUS_VERIFIED) patchStatus({ email_configured: true, email_verified: true });
-      handleSuccess('邮箱 OTP 校验请求已提交', status);
+      handleSuccess(t('account.security.success.email_otp_verified', '邮箱 OTP 校验请求已提交'), status);
     },
     onError: handleError,
   });
@@ -130,7 +132,7 @@ export function WaAccountSecurityPanel({ account, onDone, onError }: Props) {
     <section className="grid gap-4">
       <div className="flex items-center justify-end gap-2">
         {lastStatus !== undefined ? <Badge variant="outline">{statusLabel(lastStatus)}</Badge> : null}
-        <Button size="icon" variant="ghost" type="button" disabled={busy || twoFactorStatus.isFetching} title="同步状态" aria-label="同步状态" onClick={() => { void twoFactorStatus.refetch(); }}><RefreshCw size={16} className={twoFactorStatus.isFetching ? 'animate-spin' : ''} /></Button>
+        <Button size="icon" variant="ghost" type="button" disabled={busy || twoFactorStatus.isFetching} title={t('account.security.action.sync_status', '同步状态')} aria-label={t('account.security.action.sync_status', '同步状态')} onClick={() => { void twoFactorStatus.refetch(); }}><RefreshCw size={16} className={twoFactorStatus.isFetching ? 'animate-spin' : ''} /></Button>
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
         <section className="grid gap-3">
@@ -144,11 +146,11 @@ export function WaAccountSecurityPanel({ account, onDone, onError }: Props) {
         </section>
         {emailOtpVisible && (
           <div className="grid gap-3 border-t border-border pt-5 lg:col-span-2">
-            <div className="flex items-center gap-2 text-sm font-medium"><Send size={15} />邮箱 OTP</div>
+            <div className="flex items-center gap-2 text-sm font-medium"><Send size={15} />{t('account.security.email_otp', '邮箱 OTP')}</div>
             <div className="grid gap-3 sm:grid-cols-[auto_1fr_auto]">
-              <Button type="button" variant="outline" disabled={busy} onClick={() => otpRequest.mutate()}><Send size={14} />请求 OTP</Button>
-              <Input value={emailOtp} onChange={(event) => setEmailOtp(event.target.value)} inputMode="numeric" autoComplete="one-time-code" type="password" maxLength={6} disabled={busy} placeholder="6 位验证码" />
-              <Button type="button" disabled={busy || emailOtp.length !== 6} onClick={() => otpVerify.mutate()}><CheckCircle2 size={14} />校验 OTP</Button>
+              <Button type="button" variant="outline" disabled={busy} onClick={() => otpRequest.mutate()}><Send size={14} />{t('account.security.action.request_otp', '请求 OTP')}</Button>
+              <Input value={emailOtp} onChange={(event) => setEmailOtp(event.target.value)} inputMode="numeric" autoComplete="one-time-code" type="password" maxLength={6} disabled={busy} placeholder={t('account.security.placeholder.email_otp', '6 位验证码')} />
+              <Button type="button" disabled={busy || emailOtp.length !== 6} onClick={() => otpVerify.mutate()}><CheckCircle2 size={14} />{t('account.security.action.verify_otp', '校验 OTP')}</Button>
             </div>
           </div>
         )}
@@ -166,11 +168,13 @@ function EmailProjection({ status }: { status?: NonNullable<GetTwoFactorAuthStat
 }
 
 function PinForm({ pin, busy, configured, onPinChange, onCancel, onSubmit }: { pin: string; busy: boolean; configured: boolean; onPinChange: (value: string) => void; onCancel: () => void; onSubmit: (event: FormEvent<HTMLFormElement>) => void }) {
-  return <form className="grid gap-3" onSubmit={onSubmit}><FieldGroup><Field><FieldLabel>{configured ? '新 6 位 PIN' : '6 位 PIN'}</FieldLabel><Input value={pin} onChange={(event) => onPinChange(event.target.value)} inputMode="numeric" autoComplete="one-time-code" type="password" maxLength={6} disabled={busy} /></Field>{configured ? <Button type="button" variant="ghost" size="icon" disabled={busy} title="取消修改" aria-label="取消修改" onClick={onCancel}><X size={16} /></Button> : null}<Button type="submit" disabled={busy || pin.length !== 6}><KeyRound size={14} />{configured ? '修改 PIN' : '设置 PIN'}</Button></FieldGroup></form>;
+  const { t } = useI18n();
+  return <form className="grid gap-3" onSubmit={onSubmit}><FieldGroup><Field><FieldLabel>{configured ? t('account.security.field.new_pin', '新 6 位 PIN') : t('account.security.field.pin', '6 位 PIN')}</FieldLabel><Input value={pin} onChange={(event) => onPinChange(event.target.value)} inputMode="numeric" autoComplete="one-time-code" type="password" maxLength={6} disabled={busy} /></Field>{configured ? <Button type="button" variant="ghost" size="icon" disabled={busy} title={t('account.profile.action.cancel_edit', '取消修改')} aria-label={t('account.profile.action.cancel_edit', '取消修改')} onClick={onCancel}><X size={16} /></Button> : null}<Button type="submit" disabled={busy || pin.length !== 6}><KeyRound size={14} />{configured ? t('account.security.action.update_pin', '修改 PIN') : t('account.security.action.confirm_pin', '设置 PIN')}</Button></FieldGroup></form>;
 }
 
 function EmailForm({ email, busy, configured, onEmailChange, onCancel, onSubmit }: { email: string; busy: boolean; configured: boolean; onEmailChange: (value: string) => void; onCancel: () => void; onSubmit: (event: FormEvent<HTMLFormElement>) => void }) {
-  return <form className="grid gap-3" onSubmit={onSubmit}><FieldGroup><Field><FieldLabel>{configured ? '新邮箱地址' : '邮箱地址'}</FieldLabel><Input value={email} onChange={(event) => onEmailChange(event.target.value)} type="email" disabled={busy} placeholder={configured ? '新邮箱地址' : '邮箱地址'} /></Field>{configured ? <Button type="button" variant="ghost" size="icon" disabled={busy} title="取消修改" aria-label="取消修改" onClick={onCancel}><X size={16} /></Button> : null}<Button type="submit" disabled={busy || !email}><Mail size={14} />{configured ? '修改邮箱' : '设置邮箱'}</Button></FieldGroup></form>;
+  const { t } = useI18n();
+  return <form className="grid gap-3" onSubmit={onSubmit}><FieldGroup><Field><FieldLabel>{configured ? t('account.security.field.new_email', '新邮箱地址') : t('account.security.field.email', '邮箱地址')}</FieldLabel><Input value={email} onChange={(event) => onEmailChange(event.target.value)} type="email" disabled={busy} placeholder={configured ? t('account.security.field.new_email', '新邮箱地址') : t('account.security.field.email', '邮箱地址')} /></Field>{configured ? <Button type="button" variant="ghost" size="icon" disabled={busy} title={t('account.profile.action.cancel_edit', '取消修改')} aria-label={t('account.profile.action.cancel_edit', '取消修改')} onClick={onCancel}><X size={16} /></Button> : null}<Button type="submit" disabled={busy || !email}><Mail size={14} />{configured ? t('account.security.action.update_email', '修改邮箱') : t('account.security.action.confirm_email', '设置邮箱')}</Button></FieldGroup></form>;
 }
 
 function submit(event: FormEvent<HTMLFormElement>, run: () => void) { event.preventDefault(); run(); }

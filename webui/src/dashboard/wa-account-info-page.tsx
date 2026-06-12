@@ -1,5 +1,6 @@
 import { ArrowLeft, Trash2 } from 'lucide-react';
 import { Link } from 'react-router';
+import { useI18n } from '@/i18n/i18n';
 import type { ClientProfile, WAAccount } from '../proto/byte/v/forge/waapp/v1/profile';
 import { waAccountID, waAccountTitle } from './wa-api';
 import { WaAccountAvatar } from './wa-account-avatar';
@@ -20,16 +21,17 @@ type Props = {
 };
 
 export function WaAccountInfoPage({ account, profiles, profilesLoading, busy, onDelete, onDone, onError, onAccountChanged, onAvatarChanged }: Props) {
+  const { t } = useI18n();
   const subtitle = account.display_name ? account.phone?.e164_number || waAccountID(account) : '';
   return (
     <section className="grid h-dvh min-h-0 grid-rows-[auto_1fr] bg-background">
       <header className="flex h-16 items-center justify-between border-b border-border bg-card px-5">
         <div className="flex min-w-0 items-center gap-3">
-          <Link className="inline-flex size-9 items-center justify-center rounded-lg transition hover:bg-muted" to={waChatsPath(waAccountID(account))} title="返回消息" aria-label="返回消息"><ArrowLeft size={16} /></Link>
+          <Link className="inline-flex size-9 items-center justify-center rounded-lg transition hover:bg-muted" to={waChatsPath(waAccountID(account))} title={t('account.detail.back_to_messages', '返回消息')} aria-label={t('account.detail.back_to_messages', '返回消息')}><ArrowLeft size={16} /></Link>
           <WaAccountAvatar account={account} version={account.audit?.updated_at || 'latest'} size="md" />
           <div className="min-w-0"><h1 className="truncate text-base font-semibold">{waAccountTitle(account)}</h1>{subtitle ? <p className="truncate font-mono text-xs text-muted-foreground">{subtitle}</p> : null}</div>
         </div>
-        <Button variant="destructive" size="icon" disabled={busy} title="删除账号" aria-label="删除账号" onClick={() => onDelete(account)}><Trash2 size={16} /></Button>
+        <Button variant="destructive" size="icon" disabled={busy} title={t('account.detail.delete_account', '删除账号')} aria-label={t('account.detail.delete_account', '删除账号')} onClick={() => onDelete(account)}><Trash2 size={16} /></Button>
       </header>
       <main className="min-h-0 overflow-y-auto p-4">
         <div className="mx-auto max-w-6xl">

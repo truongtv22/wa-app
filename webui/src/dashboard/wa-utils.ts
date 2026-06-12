@@ -1,8 +1,7 @@
 import { parsePhoneNumberFromString } from 'libphonenumber-js';
+import { i18n } from '@/i18n/i18n';
 import type { WaPhoneInput, WaWorkflowResponse } from './wa-api';
 import { accountReasonLabel } from './wa-result-labels';
-
-const PHONE_NOT_POSSIBLE_MESSAGE = '手机号位数不符合国家规则，请检查国家拨号码和手机号。';
 
 export type WaResolvedPhone = {
   e164: string;
@@ -14,19 +13,19 @@ export type WaPhoneResolveResult = { target: WaResolvedPhone | null; error?: str
 export function resolveWaPhoneTarget(value: string, countryCallingCode = ''): WaPhoneResolveResult {
   const raw = value.trim();
   const digits = value.replace(/\D+/g, '');
-  if (!digits) return { target: null, error: '请输入手机号' };
+  if (!digits) return { target: null, error: i18n.t('result.enter_phone', '请输入手机号') };
   const callingCode = countryCallingCode.replace(/\D+/g, '');
-  if (!callingCode) return { target: null, error: '请输入国家拨号码，例如 992。' };
+  if (!callingCode) return { target: null, error: i18n.t('result.enter_country_code', '请输入国家拨号码，例如 992。') };
   const parseInput = raw.startsWith('+') ? raw : internationalNumberFromCallingCode(digits, callingCode);
   const phone = parsePhoneNumberFromString(parseInput);
   if (!phone?.countryCallingCode || !phone.nationalNumber) {
-    return { target: null, error: '手机号无法解析，请输入手机号和国家拨号码。' };
+    return { target: null, error: i18n.t('result.phone_unparseable', '手机号无法解析，请输入手机号和国家拨号码。') };
   }
   if (phone.countryCallingCode !== callingCode) {
-    return { target: null, error: `手机号与拨号码不一致：号码为 +${phone.countryCallingCode}，拨号码为 +${callingCode}。` };
+    return { target: null, error: i18n.t('result.phone_code_mismatch', '手机号与拨号码不一致：号码为 +{phoneCode}，拨号码为 +{callingCode}。', { phoneCode: phone.countryCallingCode, callingCode }) };
   }
   if (!phone.isPossible()) {
-    return { target: null, error: PHONE_NOT_POSSIBLE_MESSAGE };
+    return { target: null, error: i18n.t('result.phone_not_possible', '手机号位数不符合国家规则，请检查国家拨号码和手机号。') };
   }
   const e164 = phone.number;
   const countryCode = phone.country || '';
@@ -45,17 +44,17 @@ export function resolveWaPhoneTarget(value: string, countryCallingCode = ''): Wa
 }
 
 export function resultStatus(result?: WaWorkflowResponse | null) {
-  if (!result) return '未执行';
-  if (result.success || result.passed) return '通过';
-  return accountReasonLabel(result.error_message, result.status) || '失败';
+  if (!result) return i18n.t('result.not_run', '未执行');
+  if (result.success || result.passed) return i18n.t('result.passed', '通过');
+  return accountReasonLabel(result.error_message, result.status) || i18n.t('result.failed', '失败');
 }
 
 export function proxyArea(result?: WaWorkflowResponse | null) {
   const proxy = result?.proxy || {};
   const mode = text(proxy.proxy_mode);
-  if (mode === 'US_ROTATING_DYNAMIC_IP' || mode === 'US_RANDOM_DYNAMIC_IP') return '美国轮转动态 IP';
-  if (mode === 'US_STICKY_DYNAMIC_IP') return '美国粘性动态 IP';
-  if (mode === 'DIRECT') return '直连';
+  if (mode === 'US_ROTATING_DYNAMIC_IP' || mode === 'US_RANDOM_DYNAMIC_IP') return i18n.t('proxy.us_rotating_dynamic', '美国轮转动态 IP');
+  if (mode === 'US_STICKY_DYNAMIC_IP') return i18n.t('proxy.us_sticky_dynamic', '美国粘性动态 IP');
+  if (mode === 'DIRECT') return i18n.t('proxy.direct', '直连');
   return mode || '-';
 }
 

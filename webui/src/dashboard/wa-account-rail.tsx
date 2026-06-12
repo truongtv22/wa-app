@@ -3,6 +3,7 @@ import { Info, Loader2, Plus } from 'lucide-react';
 import { Link, NavLink } from 'react-router';
 import { Button } from '@/components/ui/button';
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty';
+import { i18n, useI18n } from '@/i18n/i18n';
 import {
   Sidebar,
   SidebarContent,
@@ -34,12 +35,13 @@ const accountActionClass = 'top-1/2! right-2! size-7! -translate-y-1/2 rounded-l
 const collapsedTextClass = 'group-data-[collapsible=icon]:hidden';
 
 export function WaAccountRail({ accounts, selectedID, avatarVersion, connections, loading, connectionsLoading, hasNextPage, loadingMore, onLoadMore }: RailProps) {
+  const { t } = useI18n();
   const [query, setQuery] = useState('');
   const { state } = useSidebar();
   const expanded = state === 'expanded';
   const visibleAccounts = useFilteredAccounts(accounts, expanded ? query : '');
   return (
-    <Sidebar collapsible="icon" aria-label="WA 账号" className="border-r border-border">
+    <Sidebar collapsible="icon" aria-label={t('account.rail.aria', 'WA 账号')} className="border-r border-border">
       <SidebarHeader className="h-16 justify-center border-b border-sidebar-border">
         <RailHeader value={query} onChange={setQuery} />
       </SidebarHeader>
@@ -58,22 +60,24 @@ export function WaAccountRail({ accounts, selectedID, avatarVersion, connections
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarRail aria-label={expanded ? '收起账号栏' : '展开账号栏'} title={expanded ? '收起账号栏' : '展开账号栏'} />
+      <SidebarRail aria-label={expanded ? t('account.rail.collapse', '收起账号栏') : t('account.rail.expand', '展开账号栏')} title={expanded ? t('account.rail.collapse', '收起账号栏') : t('account.rail.expand', '展开账号栏')} />
     </Sidebar>
   );
 }
 
 function RailHeader({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  const { t } = useI18n();
   return (
     <div className="flex h-10 items-center gap-2 group-data-[collapsible=icon]:justify-center">
-      <SidebarInput className="h-8 group-data-[collapsible=icon]:hidden" value={value} onChange={(event) => onChange(event.target.value)} placeholder="搜索手机号" aria-label="搜索账号" />
-      <Button asChild size="icon" variant="ghost" className="size-8 group-data-[collapsible=icon]:hidden" title="添加账号" aria-label="添加账号"><Link to="/accounts/new"><Plus size={16} /></Link></Button>
-      <SidebarTrigger className="shrink-0" aria-label="切换账号栏" title="切换账号栏" />
+      <SidebarInput className="h-8 group-data-[collapsible=icon]:hidden" value={value} onChange={(event) => onChange(event.target.value)} placeholder={t('account.rail.search_phone', '搜索手机号')} aria-label={t('account.rail.search_account', '搜索账号')} />
+      <Button asChild size="icon" variant="ghost" className="size-8 group-data-[collapsible=icon]:hidden" title={t('page.add_account', '添加账号')} aria-label={t('page.add_account', '添加账号')}><Link to="/accounts/new"><Plus size={16} /></Link></Button>
+      <SidebarTrigger className="shrink-0" aria-label={t('account.rail.toggle', '切换账号栏')} title={t('account.rail.toggle', '切换账号栏')} />
     </div>
   );
 }
 
 function AccountItem({ account, selected, avatarVersion, connection, loading }: AccountItemProps) {
+  const { t } = useI18n();
   const id = waAccountID(account);
   const label = waAccountRailLabel(account);
   return (
@@ -91,14 +95,15 @@ function AccountItem({ account, selected, avatarVersion, connection, loading }: 
         </NavLink>
       </SidebarMenuButton>
       <SidebarMenuAction asChild showOnHover={!selected} className={accountActionClass}>
-        <Link to={waAccountPath(id)} title="账号详情" aria-label={`${label.tooltip} 账号详情`}><Info /></Link>
+        <Link to={waAccountPath(id)} title={t('account.rail.details', '账号详情')} aria-label={`${label.tooltip} ${t('account.rail.details', '账号详情')}`}><Info /></Link>
       </SidebarMenuAction>
     </SidebarMenuItem>
   );
 }
 
 function LoadMoreButton({ loading, onLoadMore }: { loading: boolean; onLoadMore: () => void }) {
-  return <Button className="mt-2 w-full" variant="outline" onClick={onLoadMore} disabled={loading}>{loading ? <Loader2 className="size-4 animate-spin" /> : null}加载更多账号</Button>;
+  const { t } = useI18n();
+  return <Button className="mt-2 w-full" variant="outline" onClick={onLoadMore} disabled={loading}>{loading ? <Loader2 className="size-4 animate-spin" /> : null}{t('account.rail.load_more', '加载更多账号')}</Button>;
 }
 
 function LoadingItems() {
@@ -106,7 +111,8 @@ function LoadingItems() {
 }
 
 function EmptyAccounts({ searching }: { searching: boolean }) {
-  return <Empty className="mt-4 border-0 p-4"><EmptyHeader><EmptyTitle>{searching ? '没有匹配账号' : '还没有账号'}</EmptyTitle><EmptyDescription>{searching ? '没有匹配的已加载账号' : '添加账号后会显示在这里'}</EmptyDescription></EmptyHeader></Empty>;
+  const { t } = useI18n();
+  return <Empty className="mt-4 border-0 p-4"><EmptyHeader><EmptyTitle>{searching ? t('account.rail.empty_search_title', '没有匹配账号') : t('account.rail.empty_title', '还没有账号')}</EmptyTitle><EmptyDescription>{searching ? t('account.rail.empty_search_description', '没有匹配的已加载账号') : t('account.rail.empty_description', '添加账号后会显示在这里')}</EmptyDescription></EmptyHeader></Empty>;
 }
 
 function useFilteredAccounts(accounts: WAAccount[], query: string) {
@@ -146,7 +152,7 @@ function phoneCallingCode(value: string) {
 function waAccountRailLabel(account: WAAccount) {
   const name = account.display_name?.trim() || '';
   const phone = waAccountPhone(account);
-  const primary = name || phone || '未录入手机号';
+  const primary = name || phone || i18n.t('account.rail.phone_missing', '未录入手机号');
   const subtitle = name && phone ? phone : '';
   return { primary, subtitle, tooltip: subtitle ? `${primary} · ${subtitle}` : primary };
 }

@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Field, FieldGroup, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
+import { i18n, useI18n } from '@/i18n/i18n';
 import { probeWaPhoneSMS, registerWaPhone, submitWaRegistrationOTP, type WaWorkflowResponse } from './wa-api';
 import { WhatsAppIcon } from './wa-brand-icon';
 import { accountReasonLabel } from './wa-result-labels';
@@ -18,6 +19,7 @@ type ProbeState = { target: WaResolvedPhone; result: WaWorkflowResponse } | null
 type PendingRegistration = { accountID: string };
 type Props = { disabled?: boolean; onChanged: () => void | Promise<void>; onDone: (message: string) => void; onError: (message: string) => void };
 export function WaAccountAdd({ disabled, onChanged, onDone, onError }: Props) {
+  const { t } = useI18n();
   const [phone, setPhone] = useState('');
   const [countryCallingCode, setCountryCallingCode] = useState('');
   const [probe, setProbe] = useState<ProbeState>(null);
@@ -41,7 +43,7 @@ export function WaAccountAdd({ disabled, onChanged, onDone, onError }: Props) {
   const canRegister = samePhone && registrationAnyMethodAvailable(channelStatus, cooldownElapsedSeconds) && !channelsHardBlocked;
   const detected = samePhone && Boolean(channelStatus);
   const badgeVariant = pending ? 'default' : blocked ? 'destructive' : canRegister ? 'default' : detected ? 'secondary' : 'outline';
-  const badgeLabel = pending ? '等待 OTP' : blocked ? '已封禁' : canRegister ? '可注册' : detected ? '无可直发' : '待检测';
+  const badgeLabel = pending ? t('account.add.status.pending_otp', '等待 OTP') : blocked ? t('account.add.status.blocked', '已封禁') : canRegister ? t('account.add.status.can_register', '可注册') : detected ? t('account.add.status.no_direct_send', '无可直发') : t('account.add.status.pending_probe', '待检测');
 
   useEffect(() => {
     const activeResult = activeRegistrationResult || (samePhone ? probe?.result : null);
@@ -52,7 +54,7 @@ export function WaAccountAdd({ disabled, onChanged, onDone, onError }: Props) {
 
   async function runProbe() {
     const resolved = resolveWaPhoneTarget(phone, countryCallingCode);
-    if (!resolved.target) return onError(resolved.error || '请输入手机号和国家拨号码');
+    if (!resolved.target) return onError(resolved.error || t('account.add.error.enter_phone_and_code', '请输入手机号和国家拨号码'));
     setBusy(true);
     try {
       setRegistrationResult(null);
@@ -68,16 +70,16 @@ export function WaAccountAdd({ disabled, onChanged, onDone, onError }: Props) {
     }
   }
   async function submitOTP() {
-    if (!pending) return onError('没有等待中的 OTP');
+    if (!pending) return onError(t('account.add.error.no_pending_otp', '没有等待中的 OTP'));
     const code = otp.trim();
-    if (!code) return onError('请输入 OTP');
+    if (!code) return onError(t('account.add.error.enter_otp', '请输入 OTP'));
     setBusy(true);
     try {
       const result = await submitWaRegistrationOTP(pending.accountID, code);
-      if (result.success === false || result.error_message) throw new Error(accountReasonLabel(result.error_message, result.status) || 'OTP 提交失败');
+      if (result.success === false || result.error_message) throw new Error(accountReasonLabel(result.error_message, result.status) || t('account.add.error.otp_submit_failed', 'OTP 提交失败'));
       setOtp('');
       setPending(null);
-      onDone('OTP 已提交');
+      onDone(t('account.add.success.otp_submitted', 'OTP 已提交'));
       await onChanged();
     } catch (error) {
       onError(error instanceof Error ? error.message : String(error));
@@ -87,8 +89,8 @@ export function WaAccountAdd({ disabled, onChanged, onDone, onError }: Props) {
   }
   async function startRegistration(method: SelectableRegistrationMethodOption) {
     const resolved = resolveWaPhoneTarget(phone, countryCallingCode);
-    if (!resolved.target) return onError(resolved.error || '请输入手机号和国家拨号码');
-    if (!samePhone || !channelStatus) return onError('请先检测');
+    if (!resolved.target) return onError(resolved.error || t('account.add.error.enter_phone_and_code', '请输入手机号和国家拨号码'));
+    if (!samePhone || !channelStatus) return onError(t('account.add.error.probe_first', '请先检测'));
     setBusy(true);
     try {
       const result = await registerWaPhone(resolved.target.input, method.value);
@@ -104,7 +106,7 @@ export function WaAccountAdd({ disabled, onChanged, onDone, onError }: Props) {
       if (accountID) setPending({ accountID });
       setProbe(null);
       setOtp('');
-      onDone(accountID ? 'OTP 已发送' : '已发起');
+      onDone(accountID ? t('account.add.success.otp_sent', 'OTP 已发送') : t('account.add.success.started', '已发起'));
       await onChanged();
     } catch (error) {
       onError(error instanceof Error ? error.message : String(error));
@@ -121,8 +123,8 @@ export function WaAccountAdd({ disabled, onChanged, onDone, onError }: Props) {
   return (
     <Card>
       <CardHeader className="flex flex-row items-start justify-between gap-3">
-        <div className="grid gap-1">
-          <CardTitle className="inline-flex items-center gap-2 text-base"><WhatsAppIcon className="size-5" />添加 WAAccount</CardTitle>
+          <div className="grid gap-1">
+          <CardTitle className="inline-flex items-center gap-2 text-base"><WhatsAppIcon className="size-5" />{t('account.add.title', '添加 WAAccount')}</CardTitle>
         </div>
         <Badge variant={badgeVariant}>
           {pending ? <KeyRound size={12} /> : canRegister ? <CheckCircle2 size={12} /> : null}
@@ -132,27 +134,27 @@ export function WaAccountAdd({ disabled, onChanged, onDone, onError }: Props) {
       <CardContent className="grid gap-3">
         <FieldGroup>
           <div className="grid gap-3 sm:grid-cols-[160px_1fr]">
-            <Field><FieldLabel>国家拨号码</FieldLabel><Input placeholder="+1" value={countryCallingCode} onChange={(event) => setCountryCallingCode(event.target.value)} disabled={busy || disabled} /></Field>
+            <Field><FieldLabel>{t('account.add.field.country_code', '国家拨号码')}</FieldLabel><Input placeholder="+1" value={countryCallingCode} onChange={(event) => setCountryCallingCode(event.target.value)} disabled={busy || disabled} /></Field>
             <Field>
-              <FieldLabel>手机号</FieldLabel>
+              <FieldLabel>{t('account.add.field.phone', '手机号')}</FieldLabel>
               <div className="flex gap-2">
                 <Input placeholder="4155550123" value={phone} onChange={(event) => setPhone(event.target.value)} disabled={busy || disabled} />
-                <Button type="button" size="icon" variant="outline" disabled={busy || disabled} title="检测手机号" aria-label="检测手机号" onClick={() => void runProbe()}><Search size={14} /></Button>
+                <Button type="button" size="icon" variant="outline" disabled={busy || disabled} title={t('account.add.action.probe_phone', '检测手机号')} aria-label={t('account.add.action.probe_phone', '检测手机号')} onClick={() => void runProbe()}><Search size={14} /></Button>
               </div>
             </Field>
           </div>
-          {probe && !samePhone && <Badge variant="outline">号码已变化，请重新检测</Badge>}
+          {probe && !samePhone && <Badge variant="outline">{t('account.add.phone_changed', '号码已变化，请重新检测')}</Badge>}
         </FieldGroup>
         {showChannels && (
           <Field>
-            <FieldLabel>通道</FieldLabel>
+            <FieldLabel>{t('account.add.field.channel', '通道')}</FieldLabel>
             <WaRegistrationChannelButtons status={channelStatus} elapsedSeconds={cooldownElapsedSeconds} disabled={busy || disabled || Boolean(pending) || channelsHardBlocked} onStart={(method) => void startRegistration(method)} />
           </Field>
         )}
         {pending && <WaRegistrationOtpCard value={otp} busy={busy} onChange={setOtp} onSubmit={() => void submitOTP()} />}
         {(activeRegistrationResult || probe || busy) && (
           <Card className="p-3">
-            <WaResultPanel title={activeRegistrationResult ? '注册结果' : '检测结果'} phone={registrationSamePhone ? registrationTarget?.e164 || '' : samePhone ? probe?.target.e164 || '' : ''} result={activeRegistrationResult || (samePhone ? probe?.result || null : null)} loading={busy} showMethods={!showChannels} />
+            <WaResultPanel title={activeRegistrationResult ? t('account.add.result.registration', '注册结果') : t('account.add.result.probe', '检测结果')} phone={registrationSamePhone ? registrationTarget?.e164 || '' : samePhone ? probe?.target.e164 || '' : ''} result={activeRegistrationResult || (samePhone ? probe?.result || null : null)} loading={busy} showMethods={!showChannels} />
           </Card>
         )}
       </CardContent>
@@ -170,8 +172,8 @@ function workflowText(result: WaWorkflowResponse, key: keyof WaWorkflowResponse)
 function registrationFailureMessage(result: WaWorkflowResponse, status: ReturnType<typeof waProbeStatus>) {
   const detail = status.failureReason || result.error_message || result.status || '';
   const reason = accountReasonLabel(detail);
-  if (status.blocked) return '号码被拒绝/封禁';
-  if (status.accountFlow === 'invalid_number') return reason || '号码无效';
-  if (status.accountFlow === 'rate_limited') return reason || '请求冷却中';
-  return reason || '注册失败';
+  if (status.blocked) return i18n.t('account.add.failure.blocked', '号码被拒绝/封禁');
+  if (status.accountFlow === 'invalid_number') return reason || i18n.t('account.add.failure.invalid_number', '号码无效');
+  if (status.accountFlow === 'rate_limited') return reason || i18n.t('account.add.failure.rate_limited', '请求冷却中');
+  return reason || i18n.t('account.add.failure.default', '注册失败');
 }

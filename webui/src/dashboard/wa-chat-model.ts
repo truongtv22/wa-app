@@ -1,4 +1,5 @@
 import type { ThreadMessageLike } from '@assistant-ui/react';
+import { i18n } from '@/i18n/i18n';
 import type { WAContact as WAContactRecord } from '../proto/byte/v/forge/waapp/v1/contacts';
 import { WAContactKind } from '../proto/byte/v/forge/waapp/v1/contacts';
 import type { AccountMessage } from '../proto/byte/v/forge/waapp/v1/messaging';
@@ -107,10 +108,10 @@ function byMessageTime(a: AccountMessage, b: AccountMessage) {
 
 function sourcePartyLabel(value?: string) {
   const raw = (value || '').trim();
-  if (!raw) return '未知联系人';
-  if (raw === 's.whatsapp.net') return '系统';
+  if (!raw) return i18n.t('chat_model.unknown_contact', '未知联系人');
+  if (raw === 's.whatsapp.net') return i18n.t('chat_model.system', '系统');
   if (raw.endsWith('@s.whatsapp.net')) return `+${raw.replace(/@s\.whatsapp\.net$/, '')}`;
-  if (raw.endsWith('@lid')) return '未知联系人';
+  if (raw.endsWith('@lid')) return i18n.t('chat_model.unknown_contact', '未知联系人');
   return raw;
 }
 
@@ -124,15 +125,15 @@ function contactProfilePictureURL(record: WAContactRecord) {
 
 function recordTitle(record: WAContactRecord) {
   const name = firstContactName(record);
-  if (record.kind === WAContactKind.WA_CONTACT_KIND_BUSINESS) return name || '企业联系人';
-  return name || phoneTitle(record.number) || sourcePartyLabel(record.jid) || '未知联系人';
+  if (record.kind === WAContactKind.WA_CONTACT_KIND_BUSINESS) return name || i18n.t('chat_model.business_contact', '企业联系人');
+  return name || phoneTitle(record.number) || sourcePartyLabel(record.jid) || i18n.t('chat_model.unknown_contact', '未知联系人');
 }
 
 function recordSubtitle(record: WAContactRecord) {
   if (record.kind === WAContactKind.WA_CONTACT_KIND_SYSTEM) return '';
   if (record.kind === WAContactKind.WA_CONTACT_KIND_BUSINESS) return '';
   if (record.number) return `+${record.number}`;
-  if (record.jid?.endsWith('@lid')) return 'WA 联系人';
+  if (record.jid?.endsWith('@lid')) return i18n.t('chat_model.wa_contact', 'WA 联系人');
   return sourcePartyLabel(record.jid);
 }
 
@@ -146,17 +147,17 @@ function isKnownChatEvent(event: WaChatEvent) {
 }
 
 function messageSourceLabel(item: AccountMessage) {
-  if (item.source === AccountMessageSource.ACCOUNT_MESSAGE_SOURCE_LOCAL_SEND) return '已发送';
-  if (item.source === AccountMessageSource.ACCOUNT_MESSAGE_SOURCE_IMPORTED_HISTORY) return '导入历史';
-  if (item.encryption_state === MessageEncryptionState.MESSAGE_ENCRYPTION_STATE_DECRYPTION_FAILED) return '解密失败';
-  if (item.encryption_state === MessageEncryptionState.MESSAGE_ENCRYPTION_STATE_ENCRYPTED) return '待解密';
-  return 'WA 消息';
+  if (item.source === AccountMessageSource.ACCOUNT_MESSAGE_SOURCE_LOCAL_SEND) return i18n.t('chat_model.sent', '已发送');
+  if (item.source === AccountMessageSource.ACCOUNT_MESSAGE_SOURCE_IMPORTED_HISTORY) return i18n.t('chat_model.imported_history', '导入历史');
+  if (item.encryption_state === MessageEncryptionState.MESSAGE_ENCRYPTION_STATE_DECRYPTION_FAILED) return i18n.t('chat_model.decrypt_failed', '解密失败');
+  if (item.encryption_state === MessageEncryptionState.MESSAGE_ENCRYPTION_STATE_ENCRYPTED) return i18n.t('chat_model.pending_decrypt', '待解密');
+  return i18n.t('chat_model.wa_message', 'WA 消息');
 }
 
 function messageStateLabel(state?: MessageEncryptionState) {
-  if (state === MessageEncryptionState.MESSAGE_ENCRYPTION_STATE_ENCRYPTED) return '消息待解密';
-  if (state === MessageEncryptionState.MESSAGE_ENCRYPTION_STATE_DECRYPTION_FAILED) return '消息解密失败';
-  return '空消息';
+  if (state === MessageEncryptionState.MESSAGE_ENCRYPTION_STATE_ENCRYPTED) return i18n.t('chat_model.message_pending_decrypt', '消息待解密');
+  if (state === MessageEncryptionState.MESSAGE_ENCRYPTION_STATE_DECRYPTION_FAILED) return i18n.t('chat_model.message_decrypt_failed', '消息解密失败');
+  return i18n.t('message.empty', '空消息');
 }
 
 function safeContactName(value?: string) {

@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { Toaster } from '@/components/ui/sonner';
+import { useI18n } from '@/i18n/i18n';
 import type { LongConnectionState } from '../proto/byte/v/forge/waapp/v1/messaging';
 import type { WAAccount } from '../proto/byte/v/forge/waapp/v1/profile';
 import { deleteWaAccount, getWaAccounts, getWaClientProfiles, waAccountID, waKeys } from './wa-api';
@@ -16,6 +17,7 @@ import { WaAccountInfoPage } from './wa-account-info-page';
 import { WaAccountRail } from './wa-account-rail';
 import { WhatsAppIcon } from './wa-brand-icon';
 import { WaInbox } from './wa-inbox';
+import { WaLanguageSwitch } from './wa-language-switch';
 import { useWaLongConnectionIndex } from './wa-long-connection-badge';
 import { waChatsPath } from './wa-route-paths';
 
@@ -25,6 +27,7 @@ const emptyAccounts: WAAccount[] = [];
 const accountSidebarStyle = { '--sidebar-width': '15rem', '--sidebar-width-icon': '4rem' } as CSSProperties;
 
 export function WaLayout() {
+  const { t } = useI18n();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [accountAvatarVersion, setAccountAvatarVersion] = useState(() => String(Date.now()));
@@ -33,7 +36,7 @@ export function WaLayout() {
   const connections = useWaLongConnectionIndex();
   const accounts = useMemo(() => accountsQuery.data?.pages.flatMap((page) => page.accounts || []) || emptyAccounts, [accountsQuery.data]);
   const selectedID = useSelectedAccountID(accounts);
-  const deletion = useMutation({ mutationFn: deleteWaAccount, onSuccess: async () => { toast.success('账号已删除'); await refreshAccounts(); navigate('/', { replace: true }); }, onError: showErrorToast });
+  const deletion = useMutation({ mutationFn: deleteWaAccount, onSuccess: async () => { toast.success(t('page.account_deleted', '账号已删除')); await refreshAccounts(); navigate('/', { replace: true }); }, onError: showErrorToast });
   async function refreshAccounts() {
     await queryClient.invalidateQueries({ queryKey: waKeys.accounts() });
   }
@@ -42,39 +45,46 @@ export function WaLayout() {
   return (
     <SidebarProvider open={accountRailExpanded} onOpenChange={setAccountRailExpanded} style={accountSidebarStyle} className="h-dvh min-h-0 overflow-hidden bg-background text-foreground">
       <WaAccountRail accounts={accounts} selectedID={selectedID} avatarVersion={accountAvatarVersion} connections={connections.byAccount} loading={accountsQuery.isLoading} connectionsLoading={connections.loading} hasNextPage={Boolean(accountsQuery.hasNextPage)} loadingMore={accountsQuery.isFetchingNextPage} onLoadMore={() => { void accountsQuery.fetchNextPage(); }} />
-      <SidebarInset className="h-dvh min-w-0 overflow-hidden"><Outlet context={context} /></SidebarInset>
+      <SidebarInset className="relative h-dvh min-w-0 overflow-hidden">
+        <div className="absolute top-3 right-3 z-50"><WaLanguageSwitch /></div>
+        <Outlet context={context} />
+      </SidebarInset>
       <Toaster richColors closeButton />
     </SidebarProvider>
   );
 }
 
 export function WaHomeRoute() {
+  const { t } = useI18n();
   const { accounts, accountsLoading } = useWaContext();
-  if (accountsLoading) return <PageCenter><LoadingText>加载账号...</LoadingText></PageCenter>;
+  if (accountsLoading) return <PageCenter><LoadingText>{t('page.loading_accounts', '加载账号...')}</LoadingText></PageCenter>;
   const firstID = waAccountID(accounts[0]);
   return firstID ? <Navigate to={waChatsPath(firstID)} replace /> : <NoAccount />;
 }
 
 export function WaCreateAccountRoute() {
+  const { t } = useI18n();
   const { deleting, refreshAccounts, done, error } = useWaContext();
-  return <PageShell title="添加账号"><WaAccountAdd disabled={deleting} onChanged={refreshAccounts} onDone={done} onError={error} /></PageShell>;
+  return <PageShell title={t('page.add_account', '添加账号')}><WaAccountAdd disabled={deleting} onChanged={refreshAccounts} onDone={done} onError={error} /></PageShell>;
 }
 
 export function WaAccountInfoRoute() {
+  const { t } = useI18n();
   const account = useRouteAccount();
   const { accounts, accountsLoading, deleting, deleteAccount, done, error, refreshAccounts, refreshAccountAvatars } = useWaContext();
   const accountID = waAccountID(account);
   const profilesQuery = useQuery({ queryKey: waKeys.profiles(accountID), queryFn: () => getWaClientProfiles(accountID), enabled: Boolean(accountID), refetchInterval: 30000 });
-  if (accountsLoading) return <PageCenter><LoadingText>加载账号...</LoadingText></PageCenter>;
+  if (accountsLoading) return <PageCenter><LoadingText>{t('page.loading_accounts', '加载账号...')}</LoadingText></PageCenter>;
   if (!account) return <AccountFallback accounts={accounts} />;
   return <WaAccountInfoPage account={account} profiles={profilesQuery.data?.client_profiles || []} profilesLoading={profilesQuery.isLoading} busy={deleting} onDelete={deleteAccount} onDone={done} onError={error} onAccountChanged={() => { void refreshAccounts(); }} onAvatarChanged={refreshAccountAvatars} />;
 }
 
 export function WaInboxRoute() {
+  const { t } = useI18n();
   const { contactID = '' } = useParams();
   const account = useRouteAccount();
   const { accounts, accountsLoading } = useWaContext();
-  if (accountsLoading) return <PageCenter><LoadingText>加载消息...</LoadingText></PageCenter>;
+  if (accountsLoading) return <PageCenter><LoadingText>{t('page.loading_messages', '加载消息...')}</LoadingText></PageCenter>;
   if (!account) return <AccountFallback accounts={accounts} />;
   return <WaInbox account={account} contactID={contactID} />;
 }
@@ -100,16 +110,17 @@ function AccountFallback({ accounts }: { accounts: WAAccount[] }) {
 }
 
 function NoAccount() {
+  const { t } = useI18n();
   const navigate = useNavigate();
   return (
     <PageCenter>
       <Empty className="max-w-sm border-0">
         <EmptyHeader>
           <EmptyMedia><WhatsAppIcon className="size-12" /></EmptyMedia>
-          <EmptyTitle>还没有账号</EmptyTitle>
-          <EmptyDescription>添加账号后即可查看联系人和消息。</EmptyDescription>
+          <EmptyTitle>{t('page.no_account_title', '还没有账号')}</EmptyTitle>
+          <EmptyDescription>{t('page.no_account_description', '添加账号后即可查看联系人和消息。')}</EmptyDescription>
         </EmptyHeader>
-        <EmptyContent><Button onClick={() => navigate('/accounts/new')}><Plus size={16} />添加账号</Button></EmptyContent>
+        <EmptyContent><Button onClick={() => navigate('/accounts/new')}><Plus size={16} />{t('page.add_account', '添加账号')}</Button></EmptyContent>
       </Empty>
     </PageCenter>
   );

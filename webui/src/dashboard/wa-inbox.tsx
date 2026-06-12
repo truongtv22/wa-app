@@ -8,6 +8,7 @@ import { buildWaChatEvents, buildWaContacts } from './wa-chat-model';
 import { WaChatThread } from './wa-chat-thread';
 import { WaContactList } from './wa-contact-list';
 import { waContactPath } from './wa-route-paths';
+import { i18n } from '@/i18n/i18n';
 
 type MarkReadInput = { contactID?: string };
 
@@ -66,7 +67,7 @@ function openContact(contactID: string, mutate: (input: MarkReadInput) => void) 
 
 function deleteContact(contactID: string, mutate: (contactID: string) => void) {
   if (!contactID) return;
-  if (window.confirm('删除该联系人和本地会话？')) mutate(contactID);
+  if (window.confirm(i18n.t('inbox.confirm_delete', '删除该联系人和本地会话？'))) mutate(contactID);
 }
 
 function mutationError(error: unknown) {

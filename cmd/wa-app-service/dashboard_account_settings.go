@@ -8,11 +8,11 @@ import (
 
 func (s *dashboardHTTP) handleGetTwoFactorAuthStatus(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		methodNotAllowed(w, http.MethodGet)
+		methodNotAllowed(w, r, http.MethodGet)
 		return
 	}
 	if s.service == nil {
-		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "wa-app service is not configured"})
+		writeDashboardError(w, r, http.StatusServiceUnavailable, "common.service_not_configured", "wa-app 服务未配置")
 		return
 	}
 	payload := queryPayload(r)
@@ -22,7 +22,7 @@ func (s *dashboardHTTP) handleGetTwoFactorAuthStatus(w http.ResponseWriter, r *h
 		RemoteRefresh: boolField(payload, "remote_refresh"),
 	})
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "get WA 2FA status failed"})
+		writeDashboardError(w, r, http.StatusInternalServerError, "op.get_wa_2fa_status_failed", "获取 WA 2FA 状态失败")
 		return
 	}
 	writeProtoJSON(w, http.StatusOK, resp)
@@ -42,7 +42,7 @@ func (s *dashboardHTTP) handleSetTwoFactorAuthSettings(w http.ResponseWriter, r 
 		Pin:      &waappv1.SensitiveText{Value: textField(payload, "pin")},
 	})
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "set WA 2FA settings failed"})
+		writeDashboardError(w, r, http.StatusInternalServerError, "op.set_wa_2fa_settings_failed", "设置 WA 2FA 失败")
 		return
 	}
 	writeProtoJSON(w, http.StatusOK, resp)
@@ -63,7 +63,7 @@ func (s *dashboardHTTP) handleSetAccountEmail(w http.ResponseWriter, r *http.Req
 		GoogleIdToken: &waappv1.SensitiveText{Value: textField(payload, "google_id_token")},
 	})
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "set WA account email failed"})
+		writeDashboardError(w, r, http.StatusInternalServerError, "op.set_wa_account_email_failed", "设置 WA 账号邮箱失败")
 		return
 	}
 	writeProtoJSON(w, http.StatusOK, resp)
@@ -84,7 +84,7 @@ func (s *dashboardHTTP) handleRequestAccountEmailOtp(w http.ResponseWriter, r *h
 		LocaleCountry:  firstNonEmpty(textField(payload, "locale_country"), textField(payload, "country"), "US"),
 	})
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "request WA account email OTP failed"})
+		writeDashboardError(w, r, http.StatusInternalServerError, "op.request_wa_account_email_otp_failed", "请求 WA 账号邮箱 OTP 失败")
 		return
 	}
 	writeProtoJSON(w, http.StatusOK, resp)
@@ -104,7 +104,7 @@ func (s *dashboardHTTP) handleVerifyAccountEmailOtp(w http.ResponseWriter, r *ht
 		Code:     &waappv1.SensitiveText{Value: firstNonEmpty(textField(payload, "code"), textField(payload, "otp"))},
 	})
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "verify WA account email OTP failed"})
+		writeDashboardError(w, r, http.StatusInternalServerError, "op.verify_wa_account_email_otp_failed", "校验 WA 账号邮箱 OTP 失败")
 		return
 	}
 	writeProtoJSON(w, http.StatusOK, resp)
@@ -115,13 +115,13 @@ func (s *dashboardHTTP) handleSetAccountProfileName(w http.ResponseWriter, r *ht
 		return
 	}
 	req := &waappv1.SetAccountProfileNameRequest{}
-	if !readProtoJSONPayload(w, r, 1<<20, req, "request body must be a SetAccountProfileNameRequest JSON object") {
+	if !readProtoJSONPayload(w, r, 1<<20, req, "proto.set_profile_name_request_json", "请求体必须是 SetAccountProfileNameRequest JSON 对象") {
 		return
 	}
 	ensureAccountSettingsContext(&req.Context, "wa-account-profile-name")
 	resp, err := s.service.SetAccountProfileName(r.Context(), req)
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "set WA account profile name failed"})
+		writeDashboardError(w, r, http.StatusInternalServerError, "op.set_wa_account_profile_name_failed", "设置 WA 账号资料名称失败")
 		return
 	}
 	writeProtoJSON(w, http.StatusOK, resp)
@@ -132,13 +132,13 @@ func (s *dashboardHTTP) handleSetAccountProfilePicture(w http.ResponseWriter, r 
 		return
 	}
 	req := &waappv1.SetAccountProfilePictureRequest{}
-	if !readProtoJSONPayload(w, r, 4<<20, req, "request body must be a SetAccountProfilePictureRequest JSON object") {
+	if !readProtoJSONPayload(w, r, 4<<20, req, "proto.set_profile_picture_request_json", "请求体必须是 SetAccountProfilePictureRequest JSON 对象") {
 		return
 	}
 	ensureAccountSettingsContext(&req.Context, "wa-account-profile-picture")
 	resp, err := s.service.SetAccountProfilePicture(r.Context(), req)
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "set WA account profile picture failed"})
+		writeDashboardError(w, r, http.StatusInternalServerError, "op.set_wa_account_profile_picture_failed", "设置 WA 账号资料图片失败")
 		return
 	}
 	writeProtoJSON(w, http.StatusOK, resp)
@@ -149,13 +149,13 @@ func (s *dashboardHTTP) handleRemoveAccountProfilePicture(w http.ResponseWriter,
 		return
 	}
 	req := &waappv1.RemoveAccountProfilePictureRequest{}
-	if !readProtoJSONPayload(w, r, 1<<20, req, "request body must be a RemoveAccountProfilePictureRequest JSON object") {
+	if !readProtoJSONPayload(w, r, 1<<20, req, "proto.remove_profile_picture_request_json", "请求体必须是 RemoveAccountProfilePictureRequest JSON 对象") {
 		return
 	}
 	ensureAccountSettingsContext(&req.Context, "wa-account-profile-picture-remove")
 	resp, err := s.service.RemoveAccountProfilePicture(r.Context(), req)
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "remove WA account profile picture failed"})
+		writeDashboardError(w, r, http.StatusInternalServerError, "op.remove_wa_account_profile_picture_failed", "移除 WA 账号资料图片失败")
 		return
 	}
 	writeProtoJSON(w, http.StatusOK, resp)
@@ -163,11 +163,11 @@ func (s *dashboardHTTP) handleRemoveAccountProfilePicture(w http.ResponseWriter,
 
 func (s *dashboardHTTP) requireAccountSettingsPost(w http.ResponseWriter, r *http.Request) bool {
 	if r.Method != http.MethodPost {
-		methodNotAllowed(w, http.MethodPost)
+		methodNotAllowed(w, r, http.MethodPost)
 		return false
 	}
 	if s.service == nil {
-		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "wa-app service is not configured"})
+		writeDashboardError(w, r, http.StatusServiceUnavailable, "common.service_not_configured", "wa-app 服务未配置")
 		return false
 	}
 	return true

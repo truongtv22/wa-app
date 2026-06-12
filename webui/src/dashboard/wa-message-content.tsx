@@ -1,4 +1,5 @@
 import { ExternalLink } from 'lucide-react';
+import { useI18n } from '@/i18n/i18n';
 import { normalizeWaMessageText } from './wa-message-rich-text';
 
 const RICH_PREFIXES = [
@@ -30,9 +31,10 @@ export function WaMessageContent({ text }: { text: string }) {
 }
 
 function MessageLines({ text }: { text: string }) {
+  const { t } = useI18n();
   const lines = text.split(/\r?\n/).filter((line) => line.trim() !== '');
   const firstURL = firstLink(lines);
-  if (lines.length === 0) return <p className="text-sm text-muted-foreground">空消息</p>;
+  if (lines.length === 0) return <p className="text-sm text-muted-foreground">{t('message.empty', '空消息')}</p>;
   return (
     <div className="space-y-1 text-sm leading-6 text-foreground">
       {lines.map((line, index) => (
@@ -68,6 +70,7 @@ function markdownInline(text: string, keyPrefix: string) {
 }
 
 function LinkPreview({ url }: { url: string }) {
+  const { t } = useI18n();
   const host = linkHost(url);
   return (
     <a className="mt-2 flex max-w-sm items-center gap-3 rounded-2xl border border-emerald-100 bg-emerald-50/70 p-3 text-emerald-900 transition hover:border-emerald-200 hover:bg-emerald-50" href={url} rel="noreferrer" target="_blank">
@@ -75,7 +78,7 @@ function LinkPreview({ url }: { url: string }) {
         <ExternalLink size={16} />
       </span>
       <span className="min-w-0">
-        <span className="block truncate text-sm font-medium">{host || '打开链接'}</span>
+        <span className="block truncate text-sm font-medium">{host || t('message.open_link', '打开链接')}</span>
         <span className="block truncate text-xs text-emerald-700/80">{url}</span>
       </span>
     </a>

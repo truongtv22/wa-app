@@ -1,6 +1,7 @@
 import { CheckCircle2, Clock3, CircleDashed, PhoneMissed, XCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { i18n } from '@/i18n/i18n';
 import { countdownLabel } from './wa-result-labels';
 import {
   registrationMethodAvailable,
@@ -49,16 +50,16 @@ export function WaRegistrationChannelButtons({ status, elapsedSeconds, disabled,
 }
 
 function channelState(method: RegistrationChannelMethodOption, status: WaProbeStatus | null, elapsedSeconds: number) {
-  if (!status) return { ready: false, cooldown: 0, label: '先检测', badge: 'outline' as const, Icon: CircleDashed, title: '先检测' };
+  if (!status) return { ready: false, cooldown: 0, label: i18n.t('registration.channel.probe_first', '先检测'), badge: 'outline' as const, Icon: CircleDashed, title: i18n.t('registration.channel.probe_first', '先检测') };
   const cooldown = registrationMethodCooldownSeconds(status, method.value, elapsedSeconds);
   if (cooldown > 0) {
-    return { ready: false, cooldown, label: countdownLabel(cooldown), badge: 'secondary' as const, Icon: Clock3, title: '冷却中' };
+    return { ready: false, cooldown, label: countdownLabel(cooldown), badge: 'secondary' as const, Icon: Clock3, title: i18n.t('registration.channel.cooling_down', '冷却中') };
   }
   if (!method.directRequest) {
-    return { ready: false, cooldown: 0, label: '不支持', badge: 'outline' as const, Icon: PhoneMissed, title: '不支持' };
+    return { ready: false, cooldown: 0, label: i18n.t('registration.channel.unsupported', '不支持'), badge: 'outline' as const, Icon: PhoneMissed, title: i18n.t('registration.channel.unsupported', '不支持') };
   }
   if (registrationMethodAvailable(status, method.value, elapsedSeconds)) {
-    return { ready: true, cooldown: 0, label: '可用', badge: 'default' as const, Icon: CheckCircle2, title: '可用' };
+    return { ready: true, cooldown: 0, label: i18n.t('registration.channel.available', '可用'), badge: 'default' as const, Icon: CheckCircle2, title: i18n.t('registration.channel.available', '可用') };
   }
-  return { ready: false, cooldown: 0, label: '不可用', badge: 'outline' as const, Icon: XCircle, title: `${method.label} 当前不可用` };
+  return { ready: false, cooldown: 0, label: i18n.t('registration.channel.unavailable', '不可用'), badge: 'outline' as const, Icon: XCircle, title: `${method.label} ${i18n.t('registration.channel.currently_unavailable', '当前不可用')}` };
 }

@@ -10,10 +10,12 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import { Input } from '@/components/ui/input';
+import { useI18n } from '@/i18n/i18n';
 
 export function WaChatThread({ contact, events, loading, sending, error, onSendMessage }: { contact?: WaContact; events: WaChatEvent[]; loading: boolean; sending: boolean; error?: string; onSendMessage: (text: string) => Promise<unknown> }) {
+  const { t } = useI18n();
   const runtime = useExternalStoreRuntime<WaChatEvent>({ messages: events, convertMessage: toAssistantMessage, isDisabled: true, isLoading: loading, onNew: noopNewMessage });
-  const title = contact?.title || '选择联系人';
+  const title = contact?.title || t('chat.contact_fallback', '选择联系人');
   return (
     <section className="grid min-h-0 grid-rows-[auto_1fr_auto] overflow-hidden bg-card">
       <ChatHeader contact={contact} loading={loading} />
@@ -33,13 +35,14 @@ export function WaChatThread({ contact, events, loading, sending, error, onSendM
 }
 
 function ChatHeader({ contact, loading }: { contact?: WaContact; loading: boolean }) {
+  const { t } = useI18n();
   const subtitle = contact?.subtitle || '';
   return (
     <header className="flex h-16 items-center justify-between gap-3 border-b border-border px-5">
       <div className="flex min-w-0 items-center gap-3">
         <WaContactAvatar contact={contact} />
         <div className="min-w-0">
-          <h2 className="truncate text-sm font-semibold">{contact?.title || '暂无联系人'}</h2>
+          <h2 className="truncate text-sm font-semibold">{contact?.title || t('chat.contact_empty', '暂无联系人')}</h2>
           {subtitle ? <p className="truncate text-xs text-muted-foreground">{subtitle}</p> : null}
         </div>
       </div>
@@ -51,6 +54,7 @@ function ChatHeader({ contact, loading }: { contact?: WaContact; loading: boolea
 }
 
 function BubbleMessage() {
+  const { t } = useI18n();
   const meta = useMessage((message) => message.metadata.custom as WaChatMeta | undefined);
   const outgoing = Boolean(meta?.outgoing);
   const unread = Boolean(meta?.canMarkRead && !meta.read);
@@ -58,7 +62,7 @@ function BubbleMessage() {
     <MessagePrimitive.Root className={`flex w-full ${outgoing ? 'justify-end' : 'justify-start'}`}>
       <div className={`flex max-w-[min(640px,82%)] flex-col ${outgoing ? 'items-end' : 'items-start'}`}>
         <div className={`w-fit max-w-full rounded-3xl border px-4 py-3 shadow-sm ${outgoing ? 'rounded-tr-md border-emerald-200 bg-emerald-50' : unread ? 'rounded-tl-md border-emerald-200 bg-emerald-50/70' : 'rounded-tl-md border-border bg-card'}`}>
-          {unread ? <div className="mb-1 flex items-center gap-2 text-[11px] text-muted-foreground"><Badge>未读</Badge></div> : null}
+          {unread ? <div className="mb-1 flex items-center gap-2 text-[11px] text-muted-foreground"><Badge>{t('chat.unread', '未读')}</Badge></div> : null}
           <WaMessageContent text={meta?.displayText || ''} />
         </div>
         <MessageTime className="mt-1 px-2 text-[11px] text-muted-foreground" />
@@ -73,6 +77,7 @@ function MessageTime({ className = '' }: { className?: string }) {
 }
 
 function ChatComposer({ disabled, error, onSendMessage }: { disabled: boolean; error?: string; onSendMessage: (text: string) => Promise<unknown> }) {
+  const { t } = useI18n();
   const [text, setText] = useState('');
   const trimmed = text.trim();
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -88,8 +93,8 @@ function ChatComposer({ disabled, error, onSendMessage }: { disabled: boolean; e
   return (
     <footer className="border-t border-border px-5 py-3">
       <form className="flex items-center gap-2" onSubmit={(event) => void submit(event)}>
-        <Input value={text} onChange={(event) => setText(event.target.value)} disabled={disabled} placeholder={disabled ? '选择联系人后发送' : '输入消息'} aria-label="消息内容" autoComplete="off" />
-        <Button size="icon" type="submit" disabled={disabled || !trimmed} title="发送" aria-label="发送"><Send size={16} /></Button>
+        <Input value={text} onChange={(event) => setText(event.target.value)} disabled={disabled} placeholder={disabled ? t('chat.placeholder.select_contact', '选择联系人后发送') : t('chat.placeholder.input_message', '输入消息')} aria-label={t('chat.aria.message_content', '消息内容')} autoComplete="off" />
+        <Button size="icon" type="submit" disabled={disabled || !trimmed} title={t('chat.action.send', '发送')} aria-label={t('chat.action.send', '发送')}><Send size={16} /></Button>
       </form>
       {error ? <p className="mt-2 text-xs text-destructive">{error}</p> : null}
     </footer>
@@ -97,12 +102,13 @@ function ChatComposer({ disabled, error, onSendMessage }: { disabled: boolean; e
 }
 
 function EmptyConversation({ title }: { title: string }) {
+  const { t } = useI18n();
   return (
     <Empty className="mx-auto mt-16 max-w-sm flex-none border-0 bg-card/90 shadow-sm">
       <EmptyHeader>
         <EmptyMedia><WhatsAppIcon className="size-9" /></EmptyMedia>
         <EmptyTitle>{title}</EmptyTitle>
-        <EmptyDescription>选择联系人或等待新消息。</EmptyDescription>
+        <EmptyDescription>{t('chat.empty_description', '选择联系人或等待新消息。')}</EmptyDescription>
       </EmptyHeader>
     </Empty>
   );

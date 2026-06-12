@@ -3,6 +3,7 @@ import { accountFlowLabel, accountReasonLabel, booleanLabel, methodStateLabel, o
 import { metaItems, outcomeMeta, waProbeStatus, type BadgeVariant, type ResultTone, type WaProbeStatus } from './wa-result-model';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
+import { i18n } from '@/i18n/i18n';
 
 export function WaResultPanel({ title, phone, result, loading, showMethods = true }: { title: string; phone?: string; result?: WaWorkflowResponse | null; loading?: boolean; showMethods?: boolean }) {
   const status = waProbeStatus(result);
@@ -59,21 +60,21 @@ function toneClass(tone: ResultTone = 'idle', chip = false) {
 function waMetrics(status: WaProbeStatus, showSms: boolean): Array<{ label: string; value: string; tone: ResultTone }> {
   if (status.blocked === true) {
     return [
-      { label: '封禁', value: '是', tone: 'bad' },
-      { label: '请求', value: status.requestFailed ? '被拒绝' : '异常', tone: 'bad' },
-      { label: '原因', value: accountReasonLabel(status.failureReason, status.accountRawReason) || '号码被 WA 拒绝或封禁', tone: 'bad' },
+      { label: i18n.t('result.metric.blocked', '封禁'), value: i18n.t('status.common.yes', '是'), tone: 'bad' },
+      { label: i18n.t('result.metric.request', '请求'), value: status.requestFailed ? i18n.t('result.metric.request_rejected', '被拒绝') : i18n.t('result.metric.request_abnormal', '异常'), tone: 'bad' },
+      { label: i18n.t('result.metric.reason', '原因'), value: accountReasonLabel(status.failureReason, status.accountRawReason) || i18n.t('result.metric.reason_blocked', '号码被 WA 拒绝或封禁'), tone: 'bad' },
     ];
   }
   if (status.requestFailed) {
     return [
-      { label: '请求', value: '失败', tone: 'bad' },
-      { label: '阶段', value: accountFlowLabel(status.accountFlow) || '状态待确认', tone: 'bad' },
-      { label: '原因', value: accountReasonLabel(status.accountRawReason, status.failureReason, status.accountRawStatus) || '请求被 WA 拒绝', tone: 'bad' },
+      { label: i18n.t('result.metric.request', '请求'), value: i18n.t('result.metric.request_failure', '失败'), tone: 'bad' },
+      { label: i18n.t('result.meta.stage', '阶段'), value: accountFlowLabel(status.accountFlow) || i18n.t('result.metric.stage_value_error', '状态待确认'), tone: 'bad' },
+      { label: i18n.t('result.metric.reason', '原因'), value: accountReasonLabel(status.accountRawReason, status.failureReason, status.accountRawStatus) || i18n.t('result.metric.reason_rejected', '请求被 WA 拒绝'), tone: 'bad' },
     ];
   }
   const items = [
-    { label: '旧设备', value: oldDeviceLabel(status.registered, status.accountFlow), tone: oldDeviceTone(status) },
-    { label: '封禁', value: booleanLabel(status.blocked), tone: booleanTone(status.blocked) },
+    { label: i18n.t('result.metric.old_device', '旧设备'), value: oldDeviceLabel(status.registered, status.accountFlow), tone: oldDeviceTone(status) },
+    { label: i18n.t('result.metric.blocked', '封禁'), value: booleanLabel(status.blocked), tone: booleanTone(status.blocked) },
   ];
   if (showSms) items.splice(1, 0, { label: 'SMS', value: smsLabel(status.smsAvailable, status.smsWaitSeconds), tone: smsTone(status) });
   return items;

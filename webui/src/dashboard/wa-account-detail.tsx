@@ -1,5 +1,6 @@
 import { type ReactNode, useState } from 'react';
 import { Fingerprint, KeyRound, Shield, UserRound } from 'lucide-react';
+import { useI18n } from '@/i18n/i18n';
 import { WAAccountStatus } from '../proto/byte/v/forge/waapp/v1/profile';
 import type { ClientProfile, WAAccount } from '../proto/byte/v/forge/waapp/v1/profile';
 import { submitWaRegistrationOTP, waAccountID } from './wa-api';
@@ -25,21 +26,22 @@ type Props = {
 };
 
 export function WaAccountDetail({ account, profiles, profilesLoading, busy, onDone, onError, onAccountChanged, onAvatarChanged }: Props) {
+  const { t } = useI18n();
   return (
     <section className="grid gap-4">
       {isRegistrationPending(account) && <ManualOtpSubmit account={account} busy={busy} onDone={onDone} onError={onError} />}
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.05fr)_minmax(24rem,0.95fr)]">
-        <InfoPanel icon={<UserRound size={16} />} title="资料">
+        <InfoPanel icon={<UserRound size={16} />} title={t('account.detail.profile', '资料')}>
           <div className="grid gap-4">
             <WaAccountProfileSettings account={account} onDone={onDone} onError={onError} onAccountChanged={onAccountChanged} onAvatarChanged={onAvatarChanged} />
             <InfoGrid account={account} />
           </div>
         </InfoPanel>
-        <InfoPanel icon={<Shield size={16} />} title="安全">
+        <InfoPanel icon={<Shield size={16} />} title={t('account.detail.security', '安全')}>
           <WaAccountSecurityPanel account={account} onDone={onDone} onError={onError} />
         </InfoPanel>
       </div>
-      <InfoPanel icon={<Fingerprint size={16} />} title="设备指纹">
+      <InfoPanel icon={<Fingerprint size={16} />} title={t('account.detail.device_fingerprint', '设备指纹')}>
         <WaDeviceFingerprintPanel profiles={profiles} loading={profilesLoading} />
       </InfoPanel>
     </section>
@@ -62,13 +64,14 @@ function isRegistrationPending(account: WAAccount) {
 }
 
 function ManualOtpSubmit({ account, busy, onDone, onError }: { account: WAAccount; busy: boolean; onDone: (message: string) => void; onError: (message: string) => void }) {
+  const { t } = useI18n();
   const [otp, setOtp] = useState('');
   async function submit() {
     try {
       const resp = await submitWaRegistrationOTP(account, otp);
-      if (resp.error_message || resp.success === false) throw new Error(accountReasonLabel(resp.error_message, resp.status) || 'OTP 提交失败');
+      if (resp.error_message || resp.success === false) throw new Error(accountReasonLabel(resp.error_message, resp.status) || t('account.add.error.otp_submit_failed', 'OTP 提交失败'));
       setOtp('');
-      onDone('OTP 已提交');
+      onDone(t('account.add.success.otp_submitted', 'OTP 已提交'));
     } catch (error) {
       onError(error instanceof Error ? error.message : String(error));
     }
@@ -76,12 +79,12 @@ function ManualOtpSubmit({ account, busy, onDone, onError }: { account: WAAccoun
   return (
     <Card size="sm">
       <CardHeader>
-        <CardTitle className="inline-flex items-center gap-2 text-sm"><KeyRound size={15} />提交注册 OTP</CardTitle>
+        <CardTitle className="inline-flex items-center gap-2 text-sm"><KeyRound size={15} />{t('account.detail.otp_submit_title', '提交注册 OTP')}</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="flex gap-2">
-          <Input value={otp} onChange={(event) => setOtp(event.target.value)} inputMode="numeric" autoComplete="one-time-code" type="password" placeholder="验证码" />
-          <Button disabled={busy || !otp.trim()} onClick={() => void submit()}>提交</Button>
+          <Input value={otp} onChange={(event) => setOtp(event.target.value)} inputMode="numeric" autoComplete="one-time-code" type="password" placeholder={t('account.detail.otp_placeholder', '验证码')} />
+          <Button disabled={busy || !otp.trim()} onClick={() => void submit()}>{t('account.detail.submit', '提交')}</Button>
         </div>
       </CardContent>
     </Card>
@@ -89,15 +92,16 @@ function ManualOtpSubmit({ account, busy, onDone, onError }: { account: WAAccoun
 }
 
 function InfoGrid({ account }: { account: WAAccount }) {
+  const { t } = useI18n();
   const rows: Array<{ label: string; value: ReactNode }> = [
-    { label: '名称', value: account.display_name?.trim() || '-' },
-    { label: '账号 ID', value: waAccountID(account) },
-    { label: '状态', value: <StatusBadge view={waAccountStatusView(account.status)} /> },
-    { label: '手机号', value: account.phone?.e164_number || '-' },
-    { label: '国家', value: account.phone?.country_iso2 || '-' },
-    { label: '拨号码', value: account.phone?.country_calling_code || '-' },
-    { label: '创建时间', value: formatTime(account.audit?.created_at) },
-    { label: '更新时间', value: formatTime(account.audit?.updated_at) },
+    { label: t('account.detail.field.name', '名称'), value: account.display_name?.trim() || '-' },
+    { label: t('account.detail.field.account_id', '账号 ID'), value: waAccountID(account) },
+    { label: t('account.detail.field.status', '状态'), value: <StatusBadge view={waAccountStatusView(account.status)} /> },
+    { label: t('account.detail.field.phone', '手机号'), value: account.phone?.e164_number || '-' },
+    { label: t('account.detail.field.country', '国家'), value: account.phone?.country_iso2 || '-' },
+    { label: t('account.detail.field.calling_code', '拨号码'), value: account.phone?.country_calling_code || '-' },
+    { label: t('account.detail.field.created_at', '创建时间'), value: formatTime(account.audit?.created_at) },
+    { label: t('account.detail.field.updated_at', '更新时间'), value: formatTime(account.audit?.updated_at) },
   ];
   return <Table><TableBody>{rows.map((row) => <InfoRow key={row.label} label={row.label} value={row.value} />)}</TableBody></Table>;
 }

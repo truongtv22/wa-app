@@ -5,14 +5,17 @@ import { clientProfileStatusView } from './wa-result-labels';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table';
+import { i18n, useI18n } from '@/i18n/i18n';
 
 export function WaDeviceFingerprintPanel({ profiles, loading }: { profiles: ClientProfile[]; loading: boolean }) {
-  if (loading) return <p className="inline-flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" />加载设备指纹...</p>;
-  if (profiles.length === 0) return <p className="text-sm text-muted-foreground">暂无客户端 Profile。</p>;
+  const { t } = useI18n();
+  if (loading) return <p className="inline-flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" />{t('device.loading', '加载设备指纹...')}</p>;
+  if (profiles.length === 0) return <p className="text-sm text-muted-foreground">{t('device.empty_profiles', '暂无客户端 Profile。')}</p>;
   return <div className="grid gap-6">{profiles.map((profile) => <ProfileBlock key={profile.client_profile_id} profile={profile} />)}</div>;
 }
 
 function ProfileBlock({ profile }: { profile: ClientProfile }) {
+  const { t } = useI18n();
   const fp = profile.device_fingerprint;
   const status = clientProfileStatusView(profile.status);
   return (
@@ -22,21 +25,22 @@ function ProfileBlock({ profile }: { profile: ClientProfile }) {
         <CardDescription className="truncate font-mono text-xs">{profile.client_profile_id}</CardDescription>
         <CardAction><Badge variant={status.variant}>{status.label}</Badge></CardAction>
       </CardHeader>
-      <CardContent>{fp ? <FingerprintGrid fingerprint={fp} /> : <p className="text-sm text-muted-foreground">没有可展示的设备指纹。</p>}</CardContent>
+      <CardContent>{fp ? <FingerprintGrid fingerprint={fp} /> : <p className="text-sm text-muted-foreground">{t('device.empty_fingerprint', '没有可展示的设备指纹。')}</p>}</CardContent>
     </Card>
   );
 }
 
 function FingerprintGrid({ fingerprint }: { fingerprint: DeviceFingerprint }) {
+  const { t } = useI18n();
   const rows: Array<{ label: string; value: string; icon: LucideIcon }> = [
-    { label: '指纹 ID', value: fingerprint.fingerprint_id, icon: Fingerprint },
+    { label: t('device.field.fingerprint_id', '指纹 ID'), value: fingerprint.fingerprint_id, icon: Fingerprint },
     { label: 'FDID', value: fingerprint.fdid, icon: Fingerprint },
     { label: 'Android', value: fingerprint.android_version, icon: Smartphone },
     { label: 'RAM / Radio', value: [ramLabel(fingerprint.device_ram_gib), radioLabel(fingerprint.network_radio_type)].filter(Boolean).join(' / '), icon: Cpu },
     { label: 'MCC/MNC', value: pairLabel(fingerprint.mcc, fingerprint.mnc), icon: Smartphone },
     { label: 'SIM MCC/MNC', value: pairLabel(fingerprint.sim_mcc, fingerprint.sim_mnc), icon: Smartphone },
     { label: 'Phone Hash', value: fingerprint.phone_sha256_prefix ? `${fingerprint.phone_sha256_prefix}...` : '', icon: Fingerprint },
-    { label: '生成时间', value: formatTime(fingerprint.created_at), icon: Smartphone },
+    { label: t('device.field.created_at', '生成时间'), value: formatTime(fingerprint.created_at), icon: Smartphone },
   ];
   return (
     <Table>
@@ -54,7 +58,7 @@ function FingerprintGrid({ fingerprint }: { fingerprint: DeviceFingerprint }) {
   );
 }
 
-function deviceTitle(fingerprint?: DeviceFingerprint) { return fingerprint ? [fingerprint.device_vendor, fingerprint.device_model].filter(Boolean).join(' ') || '未知设备' : '未知设备'; }
+function deviceTitle(fingerprint?: DeviceFingerprint) { return fingerprint ? [fingerprint.device_vendor, fingerprint.device_model].filter(Boolean).join(' ') || i18n.t('device.unknown', '未知设备') : i18n.t('device.unknown', '未知设备'); }
 function pairLabel(a?: string, b?: string) { return [a, b].filter(Boolean).join('/'); }
 function ramLabel(value?: string) { return value ? `${value} GiB` : ''; }
 function radioLabel(value?: string) { const labels: Record<string, string> = { '1': 'GPRS', '2': 'EDGE', '3': 'UMTS', '9': 'HSDPA', '13': 'LTE', '20': 'NR' }; return value ? labels[value] || value : ''; }

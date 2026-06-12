@@ -86,11 +86,11 @@ func runDashboardHTTP(ctx context.Context, listenAddr, staticDir string, service
 
 func (s *dashboardHTTP) handleLongConnections(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		methodNotAllowed(w, http.MethodGet)
+		methodNotAllowed(w, r, http.MethodGet)
 		return
 	}
 	if s.service == nil {
-		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "wa-app service is not configured"})
+		writeDashboardError(w, r, http.StatusServiceUnavailable, "common.service_not_configured", "wa-app 服务未配置")
 		return
 	}
 	q := r.URL.Query()
@@ -102,7 +102,7 @@ func (s *dashboardHTTP) handleLongConnections(w http.ResponseWriter, r *http.Req
 		RegisteredIdentityId: q.Get("registered_identity_id"),
 	})
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "load long connection status failed"})
+		writeDashboardError(w, r, http.StatusInternalServerError, "op.load_long_connection_status_failed", "加载长连接状态失败")
 		return
 	}
 	writeProtoJSON(w, http.StatusOK, resp)
@@ -114,11 +114,11 @@ func (s *dashboardHTTP) handleAccounts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.Method != http.MethodGet {
-		methodNotAllowed(w, http.MethodGet+", "+http.MethodPost)
+		methodNotAllowed(w, r, http.MethodGet+", "+http.MethodPost)
 		return
 	}
 	if s.service == nil {
-		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "wa-app service is not configured"})
+		writeDashboardError(w, r, http.StatusServiceUnavailable, "common.service_not_configured", "wa-app 服务未配置")
 		return
 	}
 	q := r.URL.Query()
@@ -128,7 +128,7 @@ func (s *dashboardHTTP) handleAccounts(w http.ResponseWriter, r *http.Request) {
 		Cursor:  q.Get("cursor"),
 	})
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "load WA accounts failed"})
+		writeDashboardError(w, r, http.StatusInternalServerError, "op.load_wa_accounts_failed", "加载 WA 账号失败")
 		return
 	}
 	writeProtoJSON(w, http.StatusOK, resp)
@@ -136,7 +136,7 @@ func (s *dashboardHTTP) handleAccounts(w http.ResponseWriter, r *http.Request) {
 
 func (s *dashboardHTTP) handleAccount(w http.ResponseWriter, r *http.Request) {
 	if s.service == nil {
-		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "wa-app service is not configured"})
+		writeDashboardError(w, r, http.StatusServiceUnavailable, "common.service_not_configured", "wa-app 服务未配置")
 		return
 	}
 	if strings.HasSuffix(r.URL.Path, "/profile-picture") {
@@ -145,37 +145,37 @@ func (s *dashboardHTTP) handleAccount(w http.ResponseWriter, r *http.Request) {
 	}
 	accountID, err := url.PathUnescape(strings.Trim(strings.TrimPrefix(r.URL.Path, "/api/wa/accounts/"), "/"))
 	if err != nil || accountID == "" {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "wa_account_id is required"})
+		writeDashboardError(w, r, http.StatusBadRequest, "account.wa_account_id_required", "缺少 wa_account_id")
 		return
 	}
 	switch r.Method {
 	case http.MethodGet:
 		resp, err := s.service.GetWAAccount(r.Context(), &waappv1.GetWAAccountRequest{Context: &waappv1.RequestContext{RequestId: newRequestID("wa-account-get")}, WaAccountId: accountID})
 		if err != nil {
-			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "load WA account failed"})
+			writeDashboardError(w, r, http.StatusInternalServerError, "op.load_wa_account_failed", "加载 WA 账号失败")
 			return
 		}
 		writeProtoJSON(w, http.StatusOK, resp)
 	case http.MethodDelete:
 		resp, err := s.service.DeleteWAAccount(r.Context(), &waappv1.DeleteWAAccountRequest{Context: &waappv1.RequestContext{RequestId: newRequestID("wa-account-delete")}, WaAccountId: accountID})
 		if err != nil {
-			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "delete WA account failed"})
+			writeDashboardError(w, r, http.StatusInternalServerError, "op.delete_wa_account_failed", "删除 WA 账号失败")
 			return
 		}
 		writeProtoJSON(w, http.StatusOK, resp)
 	default:
-		methodNotAllowed(w, http.MethodGet+", "+http.MethodDelete)
+		methodNotAllowed(w, r, http.MethodGet+", "+http.MethodDelete)
 	}
 }
 
 func (s *dashboardHTTP) handleAccountProfilePicture(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		methodNotAllowed(w, http.MethodGet)
+		methodNotAllowed(w, r, http.MethodGet)
 		return
 	}
 	accountID, ok := accountIDFromProfilePicturePath(r.URL.Path)
 	if !ok {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "wa_account_id is required"})
+		writeDashboardError(w, r, http.StatusBadRequest, "account.wa_account_id_required", "缺少 wa_account_id")
 		return
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
@@ -190,22 +190,22 @@ func (s *dashboardHTTP) handleAccountProfilePicture(w http.ResponseWriter, r *ht
 
 func (s *dashboardHTTP) handleCreateAccount(w http.ResponseWriter, r *http.Request) {
 	if s.service == nil {
-		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "wa-app service is not configured"})
+		writeDashboardError(w, r, http.StatusServiceUnavailable, "common.service_not_configured", "wa-app 服务未配置")
 		return
 	}
 	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 1<<20))
 	if err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		writeDashboardError(w, r, http.StatusBadRequest, "common.invalid_request_body", "请求体无效")
 		return
 	}
-	normalized, err := normalizeWorkflowBody(body, "wa-account-create")
+	normalized, err := normalizeWorkflowBody(body, "wa-account-create", dashboardLocaleFromRequest(r))
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
 	}
 	payload := map[string]any{}
 	if err := json.Unmarshal(normalized, &payload); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "request body must be json"})
+		writeDashboardError(w, r, http.StatusBadRequest, "common.request_body_must_be_json", "请求体必须是 JSON")
 		return
 	}
 	phone := objectField(payload, "phone")
@@ -221,7 +221,7 @@ func (s *dashboardHTTP) handleCreateAccount(w http.ResponseWriter, r *http.Reque
 		},
 	})
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "create WA account failed"})
+		writeDashboardError(w, r, http.StatusInternalServerError, "op.create_wa_account_failed", "创建 WA 账号失败")
 		return
 	}
 	writeProtoJSON(w, http.StatusOK, resp)
@@ -229,11 +229,11 @@ func (s *dashboardHTTP) handleCreateAccount(w http.ResponseWriter, r *http.Reque
 
 func (s *dashboardHTTP) handleClientProfiles(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		methodNotAllowed(w, http.MethodGet)
+		methodNotAllowed(w, r, http.MethodGet)
 		return
 	}
 	if s.service == nil {
-		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "wa-app service is not configured"})
+		writeDashboardError(w, r, http.StatusServiceUnavailable, "common.service_not_configured", "wa-app 服务未配置")
 		return
 	}
 	q := r.URL.Query()
@@ -244,7 +244,7 @@ func (s *dashboardHTTP) handleClientProfiles(w http.ResponseWriter, r *http.Requ
 		Cursor:      q.Get("cursor"),
 	})
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "load WA client profiles failed"})
+		writeDashboardError(w, r, http.StatusInternalServerError, "op.load_wa_client_profiles_failed", "加载 WA 客户端资料失败")
 		return
 	}
 	writeProtoJSON(w, http.StatusOK, resp)
@@ -252,11 +252,11 @@ func (s *dashboardHTTP) handleClientProfiles(w http.ResponseWriter, r *http.Requ
 
 func (s *dashboardHTTP) handleAccountOTPMessages(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		methodNotAllowed(w, http.MethodGet)
+		methodNotAllowed(w, r, http.MethodGet)
 		return
 	}
 	if s.service == nil {
-		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "wa-app service is not configured"})
+		writeDashboardError(w, r, http.StatusServiceUnavailable, "common.service_not_configured", "wa-app 服务未配置")
 		return
 	}
 	q := r.URL.Query()
@@ -270,7 +270,7 @@ func (s *dashboardHTTP) handleAccountOTPMessages(w http.ResponseWriter, r *http.
 		IncludeSensitiveValues: true,
 	})
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "load WA OTP history failed"})
+		writeDashboardError(w, r, http.StatusInternalServerError, "op.load_wa_otp_history_failed", "加载 WA OTP 历史失败")
 		return
 	}
 	writeProtoJSON(w, http.StatusOK, resp)
@@ -278,11 +278,11 @@ func (s *dashboardHTTP) handleAccountOTPMessages(w http.ResponseWriter, r *http.
 
 func (s *dashboardHTTP) handleMessages(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		methodNotAllowed(w, http.MethodGet)
+		methodNotAllowed(w, r, http.MethodGet)
 		return
 	}
 	if s.service == nil {
-		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "wa-app service is not configured"})
+		writeDashboardError(w, r, http.StatusServiceUnavailable, "common.service_not_configured", "wa-app 服务未配置")
 		return
 	}
 	q := r.URL.Query()
@@ -295,7 +295,7 @@ func (s *dashboardHTTP) handleMessages(w http.ResponseWriter, r *http.Request) {
 		IncludeSensitiveText: true,
 	})
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "load WA messages failed"})
+		writeDashboardError(w, r, http.StatusInternalServerError, "op.load_wa_messages_failed", "加载 WA 消息失败")
 		return
 	}
 	writeProtoJSON(w, http.StatusOK, resp)
@@ -303,11 +303,11 @@ func (s *dashboardHTTP) handleMessages(w http.ResponseWriter, r *http.Request) {
 
 func (s *dashboardHTTP) handleMarkMessagesRead(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		methodNotAllowed(w, http.MethodPost)
+		methodNotAllowed(w, r, http.MethodPost)
 		return
 	}
 	if s.service == nil {
-		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "wa-app service is not configured"})
+		writeDashboardError(w, r, http.StatusServiceUnavailable, "common.service_not_configured", "wa-app 服务未配置")
 		return
 	}
 	payload, ok := readJSONPayload(w, r)
@@ -322,7 +322,7 @@ func (s *dashboardHTTP) handleMarkMessagesRead(w http.ResponseWriter, r *http.Re
 		ContactRef:        textField(payload, "contact_ref"),
 	})
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "mark WA messages read failed"})
+		writeDashboardError(w, r, http.StatusInternalServerError, "op.mark_wa_messages_read_failed", "标记 WA 消息已读失败")
 		return
 	}
 	writeProtoJSON(w, http.StatusOK, resp)
@@ -330,11 +330,11 @@ func (s *dashboardHTTP) handleMarkMessagesRead(w http.ResponseWriter, r *http.Re
 
 func (s *dashboardHTTP) handleDeleteMessages(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		methodNotAllowed(w, http.MethodPost)
+		methodNotAllowed(w, r, http.MethodPost)
 		return
 	}
 	if s.service == nil {
-		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "wa-app service is not configured"})
+		writeDashboardError(w, r, http.StatusServiceUnavailable, "common.service_not_configured", "wa-app 服务未配置")
 		return
 	}
 	payload, ok := readJSONPayload(w, r)
@@ -348,7 +348,7 @@ func (s *dashboardHTTP) handleDeleteMessages(w http.ResponseWriter, r *http.Requ
 		Mode:              deleteModeField(payload),
 	})
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "delete WA messages failed"})
+		writeDashboardError(w, r, http.StatusInternalServerError, "op.delete_wa_messages_failed", "删除 WA 消息失败")
 		return
 	}
 	writeProtoJSON(w, http.StatusOK, resp)
@@ -356,11 +356,11 @@ func (s *dashboardHTTP) handleDeleteMessages(w http.ResponseWriter, r *http.Requ
 
 func (s *dashboardHTTP) handleSendTextMessage(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		methodNotAllowed(w, http.MethodPost)
+		methodNotAllowed(w, r, http.MethodPost)
 		return
 	}
 	if s.service == nil {
-		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "wa-app service is not configured"})
+		writeDashboardError(w, r, http.StatusServiceUnavailable, "common.service_not_configured", "wa-app 服务未配置")
 		return
 	}
 	payload, ok := readJSONPayload(w, r)
@@ -375,7 +375,7 @@ func (s *dashboardHTTP) handleSendTextMessage(w http.ResponseWriter, r *http.Req
 		ClientMessageId: textField(payload, "client_message_id"),
 	})
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "send WA text message failed"})
+		writeDashboardError(w, r, http.StatusInternalServerError, "op.send_wa_text_message_failed", "发送 WA 文本消息失败")
 		return
 	}
 	writeProtoJSON(w, http.StatusOK, resp)
@@ -383,11 +383,11 @@ func (s *dashboardHTTP) handleSendTextMessage(w http.ResponseWriter, r *http.Req
 
 func (s *dashboardHTTP) handleContacts(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		methodNotAllowed(w, http.MethodGet)
+		methodNotAllowed(w, r, http.MethodGet)
 		return
 	}
 	if s.service == nil {
-		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "wa-app service is not configured"})
+		writeDashboardError(w, r, http.StatusServiceUnavailable, "common.service_not_configured", "wa-app 服务未配置")
 		return
 	}
 	q := r.URL.Query()
@@ -398,7 +398,7 @@ func (s *dashboardHTTP) handleContacts(w http.ResponseWriter, r *http.Request) {
 		Cursor:      q.Get("cursor"),
 	})
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "load WA contacts failed"})
+		writeDashboardError(w, r, http.StatusInternalServerError, "op.load_wa_contacts_failed", "加载 WA 联系人失败")
 		return
 	}
 	writeProtoJSON(w, http.StatusOK, resp)
@@ -418,12 +418,12 @@ func (s *dashboardHTTP) handleContactResource(w http.ResponseWriter, r *http.Req
 
 func (s *dashboardHTTP) handleDeleteContact(w http.ResponseWriter, r *http.Request) {
 	if s.service == nil {
-		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "wa-app service is not configured"})
+		writeDashboardError(w, r, http.StatusServiceUnavailable, "common.service_not_configured", "wa-app 服务未配置")
 		return
 	}
 	contactID, ok := contactIDFromContactPath(r.URL.Path)
 	if !ok {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "contact id is required"})
+		writeDashboardError(w, r, http.StatusBadRequest, "contact.id_required", "缺少 contact id")
 		return
 	}
 	accountID := r.URL.Query().Get("wa_account_id")
@@ -440,7 +440,7 @@ func (s *dashboardHTTP) handleDeleteContact(w http.ResponseWriter, r *http.Reque
 		ContactRef:  contactID,
 	})
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "delete WA contact failed"})
+		writeDashboardError(w, r, http.StatusInternalServerError, "op.delete_wa_contact_failed", "删除 WA 联系人失败")
 		return
 	}
 	writeProtoJSON(w, http.StatusOK, resp)
@@ -448,16 +448,16 @@ func (s *dashboardHTTP) handleDeleteContact(w http.ResponseWriter, r *http.Reque
 
 func (s *dashboardHTTP) handleContactProfilePicture(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		methodNotAllowed(w, http.MethodGet)
+		methodNotAllowed(w, r, http.MethodGet)
 		return
 	}
 	if s.service == nil {
-		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "wa-app service is not configured"})
+		writeDashboardError(w, r, http.StatusServiceUnavailable, "common.service_not_configured", "wa-app 服务未配置")
 		return
 	}
 	contactID, ok := contactIDFromProfilePicturePath(r.URL.Path)
 	if !ok {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "contact id is required"})
+		writeDashboardError(w, r, http.StatusBadRequest, "contact.id_required", "缺少 contact id")
 		return
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
@@ -531,22 +531,22 @@ func safeHTTPETag(value string) string {
 
 func (s *dashboardHTTP) handleResolveContacts(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		methodNotAllowed(w, http.MethodPost)
+		methodNotAllowed(w, r, http.MethodPost)
 		return
 	}
 	if s.service == nil {
-		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "wa-app service is not configured"})
+		writeDashboardError(w, r, http.StatusServiceUnavailable, "common.service_not_configured", "wa-app 服务未配置")
 		return
 	}
 	req := &waappv1.ResolveWAContactsRequest{}
 	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 1<<20))
 	if err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		writeDashboardError(w, r, http.StatusBadRequest, "common.invalid_request_body", "请求体无效")
 		return
 	}
 	if len(bytes.TrimSpace(body)) > 0 {
 		if err := (protojson.UnmarshalOptions{DiscardUnknown: true}).Unmarshal(body, req); err != nil {
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "request body must be a ResolveWAContactsRequest JSON object"})
+			writeDashboardError(w, r, http.StatusBadRequest, "proto.resolve_contacts_request_json", "请求体必须是 ResolveWAContactsRequest JSON 对象")
 			return
 		}
 	}
@@ -564,7 +564,7 @@ func (s *dashboardHTTP) handleResolveContacts(w http.ResponseWriter, r *http.Req
 	defer cancel()
 	resp, err := s.service.ResolveWAContacts(ctx, req)
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "resolve WA contacts failed"})
+		writeDashboardError(w, r, http.StatusInternalServerError, "op.resolve_wa_contacts_failed", "解析 WA 联系人失败")
 		return
 	}
 	writeProtoJSON(w, http.StatusOK, resp)
@@ -574,44 +574,44 @@ func newWAActionHandler(service *app.Server) http.Handler {
 	return app.NewActionGateway(service)
 }
 
-func (s *dashboardHTTP) handleHealth(w http.ResponseWriter, _ *http.Request) {
+func (s *dashboardHTTP) handleHealth(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"ok": true,
 		"workflows": []map[string]string{
-			{"key": "register-native", "label": "WA 原生注册流程", "webhook_path": "/api/wa/register"},
+			{"key": "register-native", "label": dashboardT(r, "health.workflow_register_native", "WA 原生注册流程"), "webhook_path": "/api/wa/register"},
 		},
 	})
 }
 
 func (s *dashboardHTTP) handlePhoneSMSProbe(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		methodNotAllowed(w, http.MethodPost)
+		methodNotAllowed(w, r, http.MethodPost)
 		return
 	}
 	if s.service == nil {
-		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "wa-app service is not configured"})
+		writeDashboardError(w, r, http.StatusServiceUnavailable, "common.service_not_configured", "wa-app 服务未配置")
 		return
 	}
 	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 1<<20))
 	if err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		writeDashboardError(w, r, http.StatusBadRequest, "common.invalid_request_body", "请求体无效")
 		return
 	}
-	normalized, err := normalizeWorkflowBody(body, "wa-phone-sms-probe")
+	normalized, err := normalizeWorkflowBody(body, "wa-phone-sms-probe", dashboardLocaleFromRequest(r))
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
 	}
 	payload := map[string]any{}
 	if err := json.Unmarshal(normalized, &payload); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "request body must be json"})
+		writeDashboardError(w, r, http.StatusBadRequest, "common.request_body_must_be_json", "请求体必须是 JSON")
 		return
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 65*time.Second)
 	defer cancel()
 	result, err := s.service.ProbeNumberSMS(ctx, payload)
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "probe WA phone failed"})
+		writeDashboardError(w, r, http.StatusInternalServerError, "op.probe_wa_phone_failed", "探测 WA 号码失败")
 		return
 	}
 	writeJSON(w, http.StatusOK, result)
@@ -619,26 +619,26 @@ func (s *dashboardHTTP) handlePhoneSMSProbe(w http.ResponseWriter, r *http.Reque
 
 func (s *dashboardHTTP) handleRegister(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		methodNotAllowed(w, http.MethodPost)
+		methodNotAllowed(w, r, http.MethodPost)
 		return
 	}
 	if s.service == nil {
-		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "wa-app service is not configured"})
+		writeDashboardError(w, r, http.StatusServiceUnavailable, "common.service_not_configured", "wa-app 服务未配置")
 		return
 	}
 	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 1<<20))
 	if err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		writeDashboardError(w, r, http.StatusBadRequest, "common.invalid_request_body", "请求体无效")
 		return
 	}
-	normalized, err := normalizeWorkflowBody(body, "wa-register")
+	normalized, err := normalizeWorkflowBody(body, "wa-register", dashboardLocaleFromRequest(r))
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
 	}
 	payload := map[string]any{}
 	if err := json.Unmarshal(normalized, &payload); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "request body must be json"})
+		writeDashboardError(w, r, http.StatusBadRequest, "common.request_body_must_be_json", "请求体必须是 JSON")
 		return
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 90*time.Second)
@@ -653,18 +653,18 @@ func (s *dashboardHTTP) handleRegister(w http.ResponseWriter, r *http.Request) {
 
 func (s *dashboardHTTP) handleLoginStateCheck(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		methodNotAllowed(w, http.MethodPost)
+		methodNotAllowed(w, r, http.MethodPost)
 		return
 	}
 	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 1<<20))
 	if err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		writeDashboardError(w, r, http.StatusBadRequest, "common.invalid_request_body", "请求体无效")
 		return
 	}
 	payload := map[string]any{}
 	if len(strings.TrimSpace(string(body))) > 0 {
 		if err := json.Unmarshal(body, &payload); err != nil {
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "request body must be json"})
+			writeDashboardError(w, r, http.StatusBadRequest, "common.request_body_must_be_json", "请求体必须是 JSON")
 			return
 		}
 	}
@@ -672,7 +672,7 @@ func (s *dashboardHTTP) handleLoginStateCheck(w http.ResponseWriter, r *http.Req
 	payload["job_id"] = firstNonEmpty(textField(payload, "job_id"), newRequestID("wa-login-state-check"))
 	encoded, err := json.Marshal(payload)
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "build login-state check request failed"})
+		writeDashboardError(w, r, http.StatusInternalServerError, "op.build_login_state_check_request_failed", "构建登录态检查请求失败")
 		return
 	}
 	r.URL.Path = "/api/wa/actions/registration/check-login-state"
@@ -684,14 +684,14 @@ func (s *dashboardHTTP) handleLoginStateCheck(w http.ResponseWriter, r *http.Req
 
 var nonDigits = regexp.MustCompile(`\D+`)
 
-func normalizeWorkflowBody(body []byte, workflowPath string) ([]byte, error) {
+func normalizeWorkflowBody(body []byte, workflowPath string, locale string) ([]byte, error) {
 	payload := map[string]any{}
 	if len(strings.TrimSpace(string(body))) > 0 {
 		if err := json.Unmarshal(body, &payload); err != nil {
-			return nil, fmt.Errorf("request body must be json")
+			return nil, fmt.Errorf("%s", dashboardTLocale(locale, "common.request_body_must_be_json", "请求体必须是 JSON"))
 		}
 	}
-	phone, err := normalizePhonePayload(payload)
+	phone, err := normalizePhonePayload(payload, locale)
 	if err != nil {
 		return nil, err
 	}
@@ -720,18 +720,16 @@ type normalizedPhone struct {
 	countryISO2    string
 }
 
-const phoneNotPossibleMessage = "手机号位数不符合国家规则，请检查国家拨号码和手机号。"
-
-func normalizePhonePayload(payload map[string]any) (normalizedPhone, error) {
+func normalizePhonePayload(payload map[string]any, locale string) (normalizedPhone, error) {
 	phoneObj := objectField(payload, "phone")
 	rawNumber := firstNonEmpty(textField(payload, "e164_number"), textField(phoneObj, "e164_number"), textField(payload, "phone"), textField(payload, "phone_number"), textField(payload, "number"), textField(payload, "national_number"), textField(phoneObj, "national_number"))
 	digits := nonDigits.ReplaceAllString(rawNumber, "")
 	if digits == "" {
-		return normalizedPhone{}, fmt.Errorf("phone is required")
+		return normalizedPhone{}, fmt.Errorf("%s", dashboardTLocale(locale, "workflow.phone_required", "缺少手机号"))
 	}
 	callingCode := nonDigits.ReplaceAllString(firstNonEmpty(textField(payload, "country_calling_code"), textField(payload, "cc"), textField(phoneObj, "country_calling_code"), numericCountryCode(payload, phoneObj)), "")
 	if callingCode == "" {
-		return normalizedPhone{}, fmt.Errorf("country_calling_code is required")
+		return normalizedPhone{}, fmt.Errorf("%s", dashboardTLocale(locale, "workflow.country_calling_code_required", "缺少 country_calling_code"))
 	}
 	parseInput := strings.TrimSpace(rawNumber)
 	if !strings.HasPrefix(parseInput, "+") {
@@ -743,13 +741,13 @@ func normalizePhonePayload(payload map[string]any) (normalizedPhone, error) {
 	}
 	parsed, err := phonenumbers.Parse(parseInput, "")
 	if err != nil {
-		return normalizedPhone{}, fmt.Errorf("phone parse failed: %w", err)
+		return normalizedPhone{}, fmt.Errorf("%s: %w", dashboardTLocale(locale, "workflow.phone_parse_failed", "手机号解析失败"), err)
 	}
 	if fmt.Sprint(parsed.GetCountryCode()) != callingCode {
-		return normalizedPhone{}, fmt.Errorf("phone country calling code does not match country_calling_code")
+		return normalizedPhone{}, fmt.Errorf("%s", dashboardTLocale(locale, "workflow.phone_country_code_mismatch", "手机号国家拨号代码与 country_calling_code 不一致"))
 	}
 	if !phonenumbers.IsPossibleNumber(parsed) {
-		return normalizedPhone{}, errors.New(phoneNotPossibleMessage)
+		return normalizedPhone{}, errors.New(dashboardTLocale(locale, "workflow.phone_not_possible", "手机号位数不符合国家规则，请检查国家拨号码和手机号。"))
 	}
 	region := strings.ToUpper(firstNonEmpty(phonenumbers.GetRegionCodeForNumber(parsed), textField(payload, "country_iso2"), textField(phoneObj, "country_iso2")))
 	return normalizedPhone{
@@ -823,17 +821,17 @@ func writeProtoJSON(w http.ResponseWriter, status int, value proto.Message) {
 	_, _ = w.Write(data)
 }
 
-func readProtoJSONPayload(w http.ResponseWriter, r *http.Request, maxBytes int64, value proto.Message, message string) bool {
+func readProtoJSONPayload(w http.ResponseWriter, r *http.Request, maxBytes int64, value proto.Message, messageKey string, fallback string) bool {
 	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxBytes))
 	if err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		writeDashboardError(w, r, http.StatusBadRequest, "common.invalid_request_body", "请求体无效")
 		return false
 	}
 	if len(bytes.TrimSpace(body)) == 0 {
 		return true
 	}
 	if err := (protojson.UnmarshalOptions{DiscardUnknown: true}).Unmarshal(body, value); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": message})
+		writeDashboardError(w, r, http.StatusBadRequest, messageKey, fallback)
 		return false
 	}
 	return true
@@ -847,9 +845,9 @@ func positiveInt(value string, fallback int) int {
 	return parsed
 }
 
-func methodNotAllowed(w http.ResponseWriter, allowed string) {
+func methodNotAllowed(w http.ResponseWriter, r *http.Request, allowed string) {
 	w.Header().Set("Allow", allowed)
-	writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"})
+	writeDashboardError(w, r, http.StatusMethodNotAllowed, "common.method_not_allowed", "方法不允许")
 }
 
 func withCORS(next http.Handler) http.Handler {
