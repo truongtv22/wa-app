@@ -51,3 +51,4 @@ APK 的冷却是按通道生效：真实可见 fallback 先从 `pref_reg_methods
 - `/v2/exist`/`/v2/code` 的 `feo2_query_status` 默认值对齐最新 APK shared-pref 读取默认值 `did_not_query`；加载旧 profile 时把旧的 `error_security_exception` 视为 stale 运行态结果并刷新为默认值。
 - `/v2/code`/`/v2/exist` HTTP transport 对齐最新 APK 静态形态：不再由 Go transport 显式发送 `Connection: close`，也不手动补 `Connection: Keep-Alive`；保留 `WaMsysRequest` / `request_token` 的 APK 头名形态。
 - `/v2/code`/`/v2/exist` 的 `db` 不再固定成 hook/emulator capture 里的 `1`；最新 APK 该字段来自 `Settings.Global["adb_enabled"]`，默认指纹按普通手机发送 `0`。`+84` 号码的 transient profile 增加 VN 运营商 MCC/MNC 候选，避免继续落到无 SIM `000/000` 形态。
+- 回滚运行态 Pure-Go WAMSYS fake fallback：`gpia/_gi/_gg/_gp/_ga/aid` 是 APK/JNI/Play Integrity 可信材料，当前服务没有真实 Android oracle 时不再自动伪造并发送，避免 `/v2/code` 因可区分假材料继续落到 `no_routes`。

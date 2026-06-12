@@ -8,7 +8,7 @@
 gpia, _gi, _gg, _gp, _ga, aid
 ```
 
-这些字段不是普通设备指纹默认值，必须来自明确的 WAMSYS material source：运行态当前使用 Pure-Go precision provider，按 App/JNI capture 的字段集、长度、编码和 fresh/stable 生命周期精准伪造；授权分析仍可通过 capture/import 显式覆盖。
+这些字段不是普通设备指纹默认值，必须来自明确的可信 WAMSYS material source。运行态不再自动伪造 Pure-Go blob：假 Play Integrity/JNI 材料在 `/v2/code` 风控上可区分，必须由授权 Android/App oracle 或真实 capture 显式提供。
 
 ## App 生成链路
 
@@ -47,11 +47,11 @@ gpia, _gi, _gg, _gp, _ga, aid
 
 1. `nativePhoneProfile` / 默认设备 map 只承载可解释的设备、网络、AB/recaptcha 状态字段。
 2. `gpia/_gi/_gg/_gp/_ga/aid` 只允许由 WAMSYS material source 注入。
-3. 当前 material source 已落地为 `internal/app/wamsys_material.go` 的 precision provider：`/v2/exist`、`/v2/code` 运行态自动注入 `gpia/_gi/_gg/_gp/_ga/aid`。
+3. 当前 material source 已落地为 `internal/app/wamsys_material.go` 的 trusted provider：无可信 capture/oracle 时不注入 `gpia/_gi/_gg/_gp/_ga/aid`。
 4. 授权分析场景仍支持 capture provider 语义：`ImportWamsysCapture` + `BuildRegistrationRequest(include_wamsys_map)` 可用真实 capture 覆盖生成值。
-5. 后续如接入 App/JNI oracle provider 或更完整 Pure-Go 算法复现，不改变上层注册请求构造。
+5. 后续接入 App/JNI oracle provider 后，不改变上层注册请求构造。
 
 ## 待对齐项
 
-- 动态 hook `jvidispatchOOO(16)`、`jvidispatchIIDOOOO` 输入输出，继续校准 fresh 字段所需上下文。
+- 接入授权 Android/App oracle provider，使用真实 `jvidispatchOOO(16)`、`jvidispatchIIDOOOO` 输出生成 fresh 字段。
 - 对比 synthetic request 与 App request：字段集、字段顺序、raw percent encoding、blob 长度与时效窗口。

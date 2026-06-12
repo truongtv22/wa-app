@@ -47,7 +47,7 @@ func NewNativeEngine(stateStore NativeStateStore, clock Clock, ids IDGenerator) 
 	if err != nil {
 		return nil, err
 	}
-	return &NativeEngine{stateStore: stateStore, http: hc, clock: clock, ids: ids, wamsys: precisionWamsysMaterialProvider{}}, nil
+	return &NativeEngine{stateStore: stateStore, http: hc, clock: clock, ids: ids, wamsys: trustedWamsysMaterialProvider{}}, nil
 }
 
 func (e *NativeEngine) WithProxyURL(proxyURL string) (*NativeEngine, error) {
@@ -66,7 +66,7 @@ func (e *NativeEngine) wamsysProvider() wamsysMaterialProvider {
 	if e != nil && e.wamsys != nil {
 		return e.wamsys
 	}
-	return precisionWamsysMaterialProvider{}
+	return trustedWamsysMaterialProvider{}
 }
 
 func (e *NativeEngine) CloseIdleConnections() {
